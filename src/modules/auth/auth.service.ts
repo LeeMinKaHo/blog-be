@@ -32,7 +32,9 @@ export class AuthService {
   }
 
   async signIn(loginDto: LoginDto): Promise<any> {
+
     const { email, password} = loginDto;
+    console.log(loginDto);
     const user = await this.usersService.findOneWithPassword(email);
 
     if (!user) throw new UnauthorizedException('Invalid credentials');

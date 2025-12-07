@@ -8,6 +8,8 @@ import { Tag } from './entity/tag.entity';
 import { UpdateBlogDto } from './dto/update-blog.dto';
 import { Blog, BlogStatus } from './entity/blog.entity';
 import { SavePost } from './entity/save-post.entity';
+import { paginate } from 'src/common/helper/pagination/pagination';
+import { PaginationQueryDto } from 'src/common/helper/pagination/pagination.dto';
 
 @Injectable()
 export class BlogsService {
@@ -84,14 +86,23 @@ export class BlogsService {
     // 3) Trả về blog bình thường
     return blog;
   }
-  findAll() {
-    return this.blogRepo.find({
-      where: { status: BlogStatus.PUSHLISH },
-      relations: {
-        category: true,
-      },
-    });
+  async findAll(search?: string, pagination?: PaginationQueryDto) {
+    const { page = 1, limit  = 10} = pagination ?? {}
+
+    const query = this.blogRepo
+      .createQueryBuilder('blog')
+      .leftJoinAndSelect('blog.category', 'category');
+
+    if (search) {
+      query.andWhere(
+        '(blog.title LIKE :search OR category.name LIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    return paginate(query, page, limit);
   }
+
   async findOne(id: number): Promise<Blog> {
     const cacheKey = `blog_${id}`;
 

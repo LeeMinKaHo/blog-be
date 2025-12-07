@@ -1,10 +1,10 @@
 
 import { User } from "../../users/entity/user.entity";
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, ManyToMany, JoinTable, BeforeInsert } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, ManyToMany, JoinTable, BeforeInsert, OneToMany } from "typeorm";
 import { Category } from "./category.entity";
 import { Tag } from "./tag.entity";
 import { v4 as uuidv4 } from 'uuid';
-
+import { Comment } from "../../comments/comment.entity";
 export enum BlogStatus {
   DRAFT = 'Draft',
   PUSHLISH = 'Pushlish',
@@ -75,6 +75,8 @@ export class Blog {
   @Column({ nullable: true })
   authorId: number;
 
+  @OneToMany(() => Comment, (comment) => comment.post)
+  comments: Comment[];
   @BeforeInsert()
   generateUuid() {
     this.uuid = uuidv4();

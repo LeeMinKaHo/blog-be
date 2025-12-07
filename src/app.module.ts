@@ -18,7 +18,9 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { AuthGuard } from './common/guards/auth.guard';
 import { Blog } from './modules/blog/entity/blog.entity';
 import { SavePost } from './modules/blog/entity/save-post.entity';
-
+import { CommentModule } from './modules/comments/comment.module';
+import { Comment } from './modules/comments/comment.entity';
+import { CommentLike } from './modules/comments/comment-like.entity';
 @Module({
   imports: [
     CacheModule,
@@ -26,13 +28,14 @@ import { SavePost } from './modules/blog/entity/save-post.entity';
     TypeOrmModule.forRoot({
       ...AppDataSource,
       type: 'mysql',
-      entities: [User, UserAdvance, Blog, Tag, Category , SavePost],
+      entities: [User, UserAdvance, Blog, Tag, Category , SavePost , Comment , CommentLike],
       synchronize: true,
     }),
     UsersModule,
     AuthModule,
     CacheModule,
     BlogModule,
+    CommentModule
   ],
   providers: [
     CacheService,

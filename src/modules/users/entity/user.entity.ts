@@ -11,7 +11,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { UserAdvance } from './user-advance.entity';
 import { Blog } from '../../blog/entity/blog.entity';
-
+import { Comment } from '../../comments/comment.entity';
 
 
 export enum UserRole {
@@ -60,6 +60,9 @@ export class User {
   // Quan hệ ngược: 1 user → nhiều blog
   @OneToMany(() => Blog, (blog) => blog.author)
   blogs: Blog[];
+
+  @OneToMany(() => Comment, (comment) => comment.user)
+  comments: Comment[];
 
   @Column({ type: 'char', length: 36, unique: true })
   uuid: string;

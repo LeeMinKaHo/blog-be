@@ -15,6 +15,7 @@ import { UserRole } from '../users/entity/user.entity';
 import { BlogsService } from './blog.service';
 import { CreateBlogDto } from './dto/create-blog.dto';
 import { UpdateBlogDto } from './dto/update-blog.dto';
+import { PaginationQueryDto } from 'src/common/helper/pagination/pagination.dto';
 
 @Controller('blogs')
 export class BlogsController {
@@ -53,11 +54,15 @@ export class BlogsController {
   create(@User('sub') authorId: string, @Body() createBlogDto: CreateBlogDto) {
     return this.blogsService.create(+authorId, createBlogDto);
   }
-  @Get('')
   @Public()
-  findAll() {
-    return this.blogsService.findAll();
+  @Get()
+  findAll(
+    @Query('search') search?: string,
+    @Query() pagination?: PaginationQueryDto,
+  ) {
+    return this.blogsService.findAll(search, pagination);
   }
+
   @Get(':id')
   @Public()
   findOne(@Param('id') id: string) {
