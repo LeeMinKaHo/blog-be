@@ -4,7 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { User } from './entity/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { hashPassword } from './user.helper';
-import { transactionDb } from 'src/common/database/transaction.db';
+import { transactionDb } from 'src/db/transaction.db';
 import { UserAdvance } from './entity/user-advance.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -52,13 +52,10 @@ export class UsersService {
       .where('user.email = :email', { email })
       .getOne();
   }
-  async update(uuid: string, dto: UpdateUserDto) {
-    // lấy user
-    const user = await this.findOneByUuid(uuid);
-
+  async update(userId: number, dto: UpdateUserDto) {
     // lấy userAdvance theo user_id
     const userAdvance = await this.userAdvanceRepo.findOne({
-      where: { user: { id: user.id } },
+      where: { user: { id: userId } },
       relations: ['user'],
     });
 
@@ -66,13 +63,23 @@ export class UsersService {
 
     // chỉ update field nào có truyền vào
     Object.assign(userAdvance, dto);
-
+    const { user } = await this.userAdvanceRepo.save(userAdvance);
     // trả về bản đã update
-    return this.userAdvanceRepo.save(userAdvance);
+    return user;
   }
 
   async remove(uuid: string): Promise<void> {
     await this.usersRepository.update({ uuid }, { isActive: false });
-    
+  }
+  async profile(userId: number): Promise<UserAdvance> {
+    const user = await this.userAdvanceRepo.findOne({
+      where: { user: { id: userId } },
+      relations: ['user'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
   }
 }

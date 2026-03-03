@@ -110,11 +110,15 @@ export class CommentService {
   async findByPost(postId: number) {
     return this.commentRepo.find({
       where: { postId },
+      relations: {
+        user: true,
+      },
     });
   }
   async findReplies(commentId: number) {
     return this.commentRepo.find({
       where: { parentId: commentId },
+      relations: { user: true },
     });
   }
   async findByUser(userId: number) {
@@ -122,12 +126,38 @@ export class CommentService {
       where: { userId },
     });
   }
-  async likeComment(commentId: number) {
+  async toggleLike(userId: number, commentId: number) {
     const comment = await this.mustFindComment(commentId);
-    comment.totalLike = (comment.totalLike || 0) + 1;
-    await this.commentRepo.save(comment);
-    return comment;
+
+    const existed = await this.likeRepo.findOne({
+      where: { userId, commentId },
+    });
+
+    if (existed) {
+      await this.likeRepo.remove(existed);
+
+      const newTotal = Math.max(0, comment.totalLike - 1);
+
+      await this.commentRepo.update({ id: commentId }, { totalLike: newTotal });
+
+      return {
+        liked: false,
+        totalLike: newTotal,
+      };
+    }
+
+    await this.likeRepo.save(this.likeRepo.create({ userId, commentId }));
+
+    const newTotal = comment.totalLike + 1;
+
+    await this.commentRepo.update({ id: commentId }, { totalLike: newTotal });
+
+    return {
+      liked: true,
+      totalLike: newTotal,
+    };
   }
+
   async unlikeComment(userId: number, commentId: number) {
     const existing = await this.likeRepo.findOne({
       where: { userId, commentId },

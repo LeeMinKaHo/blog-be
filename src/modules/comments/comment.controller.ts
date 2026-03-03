@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { CommentService } from './comment.service';
 import { Public } from 'src/common/decorators/public.decorator';
-import { User } from 'src/common/decorators/user.decorator';
+import { CurrentUser } from 'src/common/decorators/user.decorator';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 
@@ -27,10 +27,14 @@ export class CommentController {
 
   // POST /comments
   @Post()
-  create(@User('sub') userId: number, @Body() dto: CreateCommentDto) {
+  create(@CurrentUser('sub') userId: number, @Body() dto: CreateCommentDto) {
+  
     return this.commentService.create(userId, dto);
   }
-
+  @Post(':id/like')
+  like(@Param('id') id: number, @CurrentUser('sub') userId: number) {
+    return this.commentService.toggleLike(userId, id);
+  }
   // GET /comments/:id/replies
   @Public()
   @Get(':id/replies')
@@ -40,14 +44,20 @@ export class CommentController {
 
   // GET /comments/user/me
   @Get('user/me')
-  findByUser(@User('sub') userId: number) {
+  findByUser(@CurrentUser('sub') userId: number) {
     return this.commentService.findByUser(userId);
+  }
+  @Public()
+  @Get('post')
+  findByPost(@Query('postId') postId: number) {
+
+    return this.commentService.findByPost(postId);
   }
 
   // PATCH /comments/:id
   @Patch(':id')
   update(
-    @User('sub') userId: number,
+    @CurrentUser('sub') userId: number,
     @Param('id') id: number,
     @Body() dto: UpdateCommentDto,
   ) {
@@ -56,7 +66,7 @@ export class CommentController {
 
   // DELETE /comments/:id
   @Delete(':id')
-  delete(@User('sub') userId: number, @Param('id') id: number) {
+  delete(@CurrentUser('sub') userId: number, @Param('id') id: number) {
     return this.commentService.delete(userId, id);
   }
 }

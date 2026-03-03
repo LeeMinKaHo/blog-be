@@ -1,98 +1,116 @@
 <p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
+  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
 </p>
 
 [circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
 [circleci-url]: https://circleci.com/gh/nestjs/nest
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+# Foxtek Blog Backend (NestJS)
 
-## Description
+Dự án Backend nền tảng cho hệ thống **Foxtek Blog**, được xây dựng mạnh mẽ và linh hoạt bằng **NestJS**. Nó cung cấp RESTful API hiệu suất cao và chuẩn hóa, xử lý dữ liệu cho frontend.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## 🚀 Công nghệ sử dụng
 
-## Project setup
+- **Framework:** [NestJS](https://nestjs.com/) (Express under the hood)
+- **Ngôn ngữ:** TypeScript
+- **Database:** PostgreSQL kết nối qua [TypeORM](https://typeorm.io/)
+- **Caching:** Redis (`cache-manager`, `@nestjs/cache-manager`)
+- **Authentication:** JWT (`@nestjs/jwt`), HttpOnly Cookies
+- **Quản lý giới hạn truy cập:** `@nestjs/throttler`
+- **Validation:** `class-validator`, `class-transformer`
+- **Tài liệu API:** Swagger (`@nestjs/swagger`)
 
-```bash
-$ npm install
-```
+## ✨ Tính năng chính
 
-## Compile and run the project
+- **User Authentication:**
+  - Login / Register an toàn (Bcrypt hash).
+  - Xác thực qua JWT sử dụng HttpOnly Cookies (chống XSS) kết hợp cùng Refresh Token (tuỳ chọn cấu hình).
+  - Tích hợp Middleware tự động lấy thông tin CurrentUser qua custom decorator `@CurrentUser()`.
+  
+- **Blog Management:**
+  - CRUD bài viết (Blogs), quản lý Danh mục (Categories).
+  - Filter bài viết, search full-text cơ bản, phân trang (Pagination).
+  - Tracking lượt xem và bài viết Trending sử dụng **Redis** cache.
+  
+- **Tương tác & Quản lý:**
+  - Bình luận (Comments) và lồng ghép (Nested Comments).
+  - Yêu thích / Lưu bài báo (`Seen`, `Saved`).
+  - Ghi nhận Audit Log (CreatedBy, UpdatedBy) tự động bằng TypeORM Subscribers.
+  
+- **Bảo mật & Tối ưu:**
+  - Rate Limiting để chống Spam API (Throttler).
+  - Cấu hình Global Pipes, Filters và Interceptors để đồng bộ hóa Response/Error.
 
-```bash
-# development
-$ npm run start
+## 📂 Kiến trúc Module hiện tại
 
-# watch mode
-$ npm run start:dev
+- `AuthModule`: Đăng nhập, đăng ký và bảo mật.
+- `UsersModule`: Quản trị User profiles, User roles.
+- `BlogModule`: Quản lý Blogs, Categories, Trending.
+- `CommentModule`: Quản lý comment, like comment.
+- `CacheModule`: Dịch vụ Caching.
+- ...
 
-# production mode
-$ npm run start:prod
-```
+## 💻 Hướng dẫn chạy dự án
 
-## Run tests
+### 1. Yêu cầu cài đặt
+- **Node.js** (Phiên bản v18+)
+- **PostgreSQL** Database.
+- **Redis Server** (để xử lý Cache/Throttler).
+- `pnpm` hoặc `npm`.
 
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### 2. Cài đặt Dependencies
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+cd blog_be
+npm install
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### 3. Cấu hình Biến Môi trường (.env)
 
-## Resources
+Tạo file `.env` ở thư mục gốc (tham khảo `.env.example` nếu có):
 
-Check out a few resources that may come in handy when working with NestJS:
+```env
+# Database PostgreSQL
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=yourpassword
+DB_NAME=blog_db
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
 
-## Support
+# JWT
+JWT_SECRET=super_secret_key_change_me
+JWT_EXPIRATION=1d
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### 4. Chạy môi trường Development
 
-## Stay in touch
+Dự án sẽ tự động đồng bộ (synchronize) schema TypeORM khi mode = dev:
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```bash
+# Xem log & auto reload
+npm run start:dev
+```
 
-## License
+- **API Base:** `http://localhost:3000`
+- **Swagger Docs:** `http://localhost:3000/api` (Tài liệu API tự dộng)
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+### 5. Production Build
+
+```bash
+npm run build
+npm run start:prod
+```
+
+## 📝 Quy ước code cơ bản
+
+- Các tính năng mới phải được tổ chức theo cấu trúc `Modules`.
+- Sử dụng Custom Decorators (`@Public()`, `@CurrentUser()`) cho các endpoint.
+- Pagination và Sort cần trả về định dạng Pagination chuẩn trong Global Interceptors.
+- Phải thiết lập Validator DTO (Data Transfer Object) cho mọi request dùng `@Body`.
+
+---
+*Backend mạnh mẽ cho trải nghiệm Foxtek Blog mượt mà!*

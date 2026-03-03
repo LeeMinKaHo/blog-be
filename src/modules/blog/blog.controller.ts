@@ -10,57 +10,73 @@ import {
 } from '@nestjs/common';
 import { Public } from 'src/common/decorators/public.decorator';
 import { Roles } from 'src/common/decorators/roles.decorators';
-import { User } from 'src/common/decorators/user.decorator';
+import { CurrentUser } from 'src/common/decorators/user.decorator';
 import { UserRole } from '../users/entity/user.entity';
 import { BlogsService } from './blog.service';
 import { CreateBlogDto } from './dto/create-blog.dto';
 import { UpdateBlogDto } from './dto/update-blog.dto';
 import { PaginationQueryDto } from 'src/common/helper/pagination/pagination.dto';
+import { SkipThrottle } from '@nestjs/throttler';
+import { ApiQuery } from '@nestjs/swagger';
+import { BlogInteractionService } from './blog-interaction.service';
 
+@SkipThrottle() // Bỏ qua giới hạn tốc độ cho tất cả các route trong controller này
 @Controller('blogs')
 export class BlogsController {
-  constructor(private readonly blogsService: BlogsService) {}
+  constructor(
+    private readonly blogsService: BlogsService,
+    private readonly blogInteractionService: BlogInteractionService,
+  ) { }
   @Get('seen-blogs')
   @Roles(UserRole.USER, UserRole.ADMIN, UserRole.MODERATOR)
   getSeenPosts(
-    @User('sub') userId: number,
+    @CurrentUser('sub') userId: number,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
   ) {
-    return this.blogsService.getSeenBlogs(userId, page, limit);
+    return this.blogInteractionService.getSeenBlog(userId, +page, +limit);
   }
   @Post('seen-blog')
   @Roles(UserRole.USER, UserRole.ADMIN, UserRole.MODERATOR)
-  addSeenPost(@User('sub') userId: number, @Body('postId') postId: number) {
-    return this.blogsService.addSeenBlog(userId, postId);
+  addSeenPost(@CurrentUser('sub') userId: number, @Body('postId') postId: number) {
+    return this.blogInteractionService.addSeenBlog(userId, postId);
   }
   // Lưu bài blog
   @Post('saved-blog')
-  saveBlog(@User('sub') userId: number, @Body('postId') postId: number) {
-    return this.blogsService.saveBlog(userId, postId);
+  saveBlog(@CurrentUser('sub') userId: number, @Body('postId') postId: number) {
+    return this.blogInteractionService.addSavedBlog(userId, postId);
   }
 
   // Lấy danh sách blog đã lưu (có phân trang)
   @Get('saved-blogs')
   getSavedBlogs(
-    @User('sub') userId: number,
+    @CurrentUser('sub') userId: number,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
   ) {
-    return this.blogsService.getSavedBlogs(userId, page, limit);
+    return this.blogInteractionService.getSavedBlog(userId, +page, +limit);
   }
   @Post('')
   @Roles(UserRole.ADMIN, UserRole.MODERATOR)
-  create(@User('sub') authorId: string, @Body() createBlogDto: CreateBlogDto) {
+  create(@CurrentUser('sub') authorId: string, @Body() createBlogDto: CreateBlogDto) {
     return this.blogsService.create(+authorId, createBlogDto);
   }
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'categoryId', required: false })
   @Public()
   @Get()
   findAll(
     @Query('search') search?: string,
+    @Query('categoryId') categoryId?: number,
     @Query() pagination?: PaginationQueryDto,
   ) {
-    return this.blogsService.findAll(search, pagination);
+    return this.blogsService.findAll(search, categoryId ? +categoryId : undefined, pagination);
+  }
+
+  @Public()
+  @Get('categories')
+  getCategories() {
+    return this.blogsService.getCategories();
   }
 
   @Get(':id')
@@ -72,6 +88,7 @@ export class BlogsController {
   update(@Param('id') id: string, @Body() updateBlogDto: UpdateBlogDto) {
     return this.blogsService.update(+id, updateBlogDto);
   }
+
   @Delete(':id')
   @Roles(UserRole.ADMIN)
   remove(@Param('id') id: string) {

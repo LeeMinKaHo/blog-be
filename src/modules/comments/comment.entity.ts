@@ -18,7 +18,7 @@ export class Comment {
 
   @Column({ type: 'text' })
   content: string;
-
+  @Column({ type: 'int', default: 0 })
   totalLike : number;
 
   @Column({ type: 'int', nullable: false })

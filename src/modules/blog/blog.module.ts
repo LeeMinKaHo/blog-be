@@ -9,10 +9,15 @@ import { Tag } from './entity/tag.entity';
 import { CacheModule } from '../cache/cache.module';
 import { Blog } from './entity/blog.entity';
 import { SavePost } from './entity/save-post.entity';
+import { BlogRepository } from './blog.repository';
+import { BlogInteractionService } from './blog-interaction.service';
+
+
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Blog, Category, Tag , SavePost]), CacheModule],
-  providers: [BlogsService],
+  imports: [TypeOrmModule.forFeature([Blog, Category, Tag, SavePost]), CacheModule],
+  providers: [BlogsService, BlogRepository, BlogInteractionService],
   controllers: [BlogsController],
 })
-export class BlogModule {}
+
+export class BlogModule { }

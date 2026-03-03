@@ -9,11 +9,7 @@ import { CacheModule } from '../cache/cache.module';
 @Module({
   imports: [
     UsersModule,
-    JwtModule.register({
-      global: true,
-      secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: '60s' },
-    }),
+   
     CacheModule,
   ],
   providers: [AuthService],

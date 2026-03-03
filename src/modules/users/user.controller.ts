@@ -1,26 +1,36 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
   Param,
-  Delete,
-  Body,
+  ParseUUIDPipe,
   Post,
   Put,
-  ParseUUIDPipe,
-  UseGuards,
 } from '@nestjs/common';
-import { UsersService } from './users.service';
+import { Public } from 'src/common/decorators/public.decorator';
+import { Roles } from 'src/common/decorators/roles.decorators';
+import { CurrentUser } from 'src/common/decorators/user.decorator';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Public } from 'src/common/decorators/public.decorator';
-import { AuthGuard } from 'src/common/guards/auth.guard';
-import { RolesGuard } from 'src/common/guards/roles.guard';
-import { User, UserRole } from './entity/user.entity';
-import { Roles } from 'src/common/decorators/roles.decorators';
+import { UserRole } from './entity/user.entity';
+import { UsersService } from './users.service';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+  @Get('profile')
+  profile(@CurrentUser('sub') userId: number) {
+    return this.usersService.profile(userId);
+  }
+  @Put()
+  @Roles(UserRole.USER)
+  update(
+    @CurrentUser('sub') userId: number,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    return this.usersService.update(userId, updateUserDto);
+  }
 
   // POST /users
   @Public()
@@ -30,6 +40,7 @@ export class UsersController {
   }
 
   // GET /users
+  @Public()
   @Get()
   findAll() {
     return this.usersService.findAll();
@@ -39,16 +50,6 @@ export class UsersController {
   @Get(':uuid')
   findOne(@Param('uuid', new ParseUUIDPipe()) uuid: string) {
     return this.usersService.findOneByUuid(uuid);
-  }
-
-  // PUT /users/:uuid
-  @Put(':uuid')
-  @Roles(UserRole.USER)
-  update(
-    @Param('uuid', new ParseUUIDPipe()) uuid: string,
-    @Body() updateUserDto: UpdateUserDto,
-  ) {
-    return this.usersService.update(uuid, updateUserDto);
   }
 
   // DELETE /users/:uuid

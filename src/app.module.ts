@@ -1,52 +1,85 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AppDataSource } from './common/database/data-source';
 import { User } from './modules/users/entity/user.entity';
 import { UsersModule } from './modules/users/user.module';
-
 import { AuthModule } from './modules/auth/auth.module';
+import { BlogModule } from './modules/blog/blog.module';
 import { CacheModule } from './modules/cache/cache.module';
 import { CacheService } from './modules/cache/cache.service';
 import { UserAdvance } from './modules/users/entity/user-advance.entity';
-import { BlogModule } from './modules/blog/blog.module';
-
-import { Category } from './modules/blog/entity/category.entity';
-import { Tag } from './modules/blog/entity/tag.entity';
 import { APP_GUARD } from '@nestjs/core';
-import { RolesGuard } from './common/guards/roles.guard';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { join } from 'path';
 import { AuthGuard } from './common/guards/auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
 import { Blog } from './modules/blog/entity/blog.entity';
+import { Category } from './modules/blog/entity/category.entity';
 import { SavePost } from './modules/blog/entity/save-post.entity';
-import { CommentModule } from './modules/comments/comment.module';
-import { Comment } from './modules/comments/comment.entity';
+import { Tag } from './modules/blog/entity/tag.entity';
 import { CommentLike } from './modules/comments/comment-like.entity';
+import { Comment } from './modules/comments/comment.entity';
+import { CommentModule } from './modules/comments/comment.module';
+import { FilesModule } from './modules/files/files.module';
+import { AppDataSource } from './db/data-source';
+import { JwtModule } from '@nestjs/jwt';
+import { ClsModule } from 'nestjs-cls';
+import { UserContextService } from './common/services/user-context.service';
+import { AuditSubscriber } from './common/subscribers/audit.subscriber';
 @Module({
   imports: [
-    CacheModule,
     ConfigModule.forRoot({ isGlobal: true }),
+    ClsModule.forRoot({
+      global: true,
+      middleware: { mount: true },
+    }),
+    CacheModule,
+    ThrottlerModule.forRoot([{ ttl: 60, limit: 100 }]),
+    JwtModule.register({
+      global: true,
+      secret: process.env.JWT_SECRET,
+      signOptions: { expiresIn: '60s' },
+    }),
     TypeOrmModule.forRoot({
       ...AppDataSource,
       type: 'mysql',
-      entities: [User, UserAdvance, Blog, Tag, Category , SavePost , Comment , CommentLike],
       synchronize: true,
+      entities: [
+        User,
+        UserAdvance,
+        Blog,
+        Tag,
+        Category,
+        SavePost,
+        Comment,
+        CommentLike,
+      ],
+      subscribers: [AuditSubscriber],
     }),
+
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'uploads'),
+      serveRoot: '/static',
+    }),
+
     UsersModule,
     AuthModule,
-    CacheModule,
     BlogModule,
-    CommentModule
+    CommentModule,
+    FilesModule,
   ],
   providers: [
-    CacheService,
+    UserContextService,
+    AuditSubscriber,
     {
       provide: APP_GUARD,
-      useClass: AuthGuard, // chạy trước
+      useClass: AuthGuard,
     },
     {
       provide: APP_GUARD,
-      useClass: RolesGuard, // chạy sau
+      useClass: RolesGuard,
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }

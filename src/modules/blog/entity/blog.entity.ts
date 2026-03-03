@@ -1,6 +1,7 @@
 
 import { User } from "../../users/entity/user.entity";
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, ManyToMany, JoinTable, BeforeInsert, OneToMany } from "typeorm";
+import { BaseEntity } from "../../../common/base/entity.base";
 import { Category } from "./category.entity";
 import { Tag } from "./tag.entity";
 import { v4 as uuidv4 } from 'uuid';
@@ -12,9 +13,7 @@ export enum BlogStatus {
 }
 
 @Entity('blogs')
-export class Blog {
-  @PrimaryGeneratedColumn()
-  id: number;
+export class Blog extends BaseEntity {
 
   @Column({ type: 'char', length: 36, unique: true })
   uuid: string;
@@ -28,15 +27,7 @@ export class Blog {
   @Column({ length: 2048 })
   thumbnail: string;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  createdAt: Date;
 
-  @Column({
-    type: 'timestamp',
-    default: () => 'CURRENT_TIMESTAMP',
-    onUpdate: 'CURRENT_TIMESTAMP',
-  })
-  updatedAt: Date;
 
   @Column({
     type: 'enum',

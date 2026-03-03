@@ -1,28 +1,29 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { CacheService } from '../cache/cache.service';
 import { CreateBlogDto } from './dto/create-blog.dto';
 
 import { Tag } from './entity/tag.entity';
 import { UpdateBlogDto } from './dto/update-blog.dto';
 import { Blog, BlogStatus } from './entity/blog.entity';
-import { SavePost } from './entity/save-post.entity';
 import { paginate } from 'src/common/helper/pagination/pagination';
 import { PaginationQueryDto } from 'src/common/helper/pagination/pagination.dto';
+import { Category } from './entity/category.entity';
+import { BlogRepository } from './blog.repository';
+
 
 @Injectable()
 export class BlogsService {
   constructor(
-    @InjectRepository(SavePost)
-    private readonly savePostRepo: Repository<SavePost>,
     private cacheService: CacheService,
     private dataSource: DataSource,
-    @InjectRepository(Blog)
-    private blogRepo: Repository<Blog>,
+    private blogRepo: BlogRepository,
+    @InjectRepository(Category)
+    private categoryRepo: Repository<Category>,
     @InjectRepository(Tag)
     private tagRepo: Repository<Tag>,
-  ) {}
+  ) { }
 
   private extractTags(description: string): string[] {
     const regex = /#([\p{L}\p{N} ]+)/gu;
@@ -59,6 +60,10 @@ export class BlogsService {
     return Promise.all(names.map((name) => this.createOrGetTag(name, manager)));
   }
   async create(authorId: number, createBlogDto: CreateBlogDto) {
+    const isCategory = await this.categoryRepo.findOne({ where: { id: createBlogDto.categoryId } });
+    if (!isCategory) {
+      throw new NotFoundException('Category not found');
+    }
     // 1) Lưu DB bằng transaction
     const blog = await this.dataSource.transaction(async (manager) => {
       const tags = await this.processTagsFromDescription(
@@ -86,12 +91,14 @@ export class BlogsService {
     // 3) Trả về blog bình thường
     return blog;
   }
-  async findAll(search?: string, pagination?: PaginationQueryDto) {
-    const { page = 1, limit  = 10} = pagination ?? {}
+  async findAll(search?: string, categoryId?: number, pagination?: PaginationQueryDto) {
+    const { page = 1, limit = 10 } = pagination ?? {};
 
-    const query = this.blogRepo
+    const query = this.blogRepo.repo
       .createQueryBuilder('blog')
-      .leftJoinAndSelect('blog.category', 'category');
+      .leftJoinAndSelect('blog.category', 'category')
+      .leftJoinAndSelect('blog.createdBy', 'createdBy')
+      .leftJoinAndSelect('blog.updatedBy', 'updatedBy');
 
     if (search) {
       query.andWhere(
@@ -100,7 +107,15 @@ export class BlogsService {
       );
     }
 
+    if (categoryId) {
+      query.andWhere('blog.categoryId = :categoryId', { categoryId });
+    }
+
     return paginate(query, page, limit);
+  }
+
+  async getCategories() {
+    return this.categoryRepo.find({ order: { name: 'ASC' } });
   }
 
   async findOne(id: number): Promise<Blog> {
@@ -113,14 +128,7 @@ export class BlogsService {
     }
 
     // 2️⃣ Nếu không có cache → query DB
-    const blog = await this.blogRepo.findOne({
-      where: { id, status: BlogStatus.PUSHLISH },
-      relations: ['tags', 'category'], // nếu cần join quan hệ
-    });
-
-    if (!blog) {
-      throw new NotFoundException('Blog not found');
-    }
+    const blog = await this.blogRepo.findOne(id, { category: true });
 
     // 3️⃣ Cache kết quả (không block nếu cache fail)
     try {
@@ -131,18 +139,6 @@ export class BlogsService {
 
     // 4️⃣ Trả về blog
     return blog;
-  }
-  async findByIds(ids: number[]): Promise<Blog[]> {
-    if (!ids || !ids.length) return [];
-
-    const posts = await this.blogRepo.find({
-      where: { id: In(ids) },
-    });
-
-    // Giữ đúng thứ tự như mảng input
-    const map = new Map(posts.map((p) => [p.id, p]));
-
-    return ids.map((id) => map.get(id)).filter(Boolean) as Blog[];
   }
 
   async delete(id: number): Promise<void> {
@@ -165,75 +161,38 @@ export class BlogsService {
       await this.cacheService.delete(cacheKey);
     });
   }
-  async update(id: number, updateBlogDto: UpdateBlogDto): Promise<Blog> {
-    const blog = await this.blogRepo.findOne({ where: { id } });
-    if (!blog) {
-      throw new NotFoundException('Blog not found');
-    }
+  async update(id: number, updateBlogDto: Partial<Blog>): Promise<Blog> {
+    const blog = await this.blogRepo.findOne(id);
+
     Object.assign(blog, updateBlogDto);
+
     await this.dataSource.transaction(async (manager) => {
+      // Lưu vào Database
       await manager.getRepository(Blog).save(blog);
+
+      // Lưu vào Cache - Nếu fail sẽ throw error và Rollback transaction
       await this.cacheService.set(`blog_${id}`, blog, 3600);
     });
 
     return blog;
   }
-
-  async addSeenBlog(userId: number, postId: number) {
-    const key = `seen_posts:${userId}`;
-    let list = await this.cacheService.get(key);
-
-    if (!Array.isArray(list)) list = [];
-
-    // Nếu đã có rồi thì remove rồi thêm lên đầu
-    list = list.filter((id) => id !== postId);
-
-    // Add vào đầu
-    list.unshift(postId);
-
-    // Giới hạn size (ví dụ 500 bài)
-    list = list.slice(0, 500);
-
-    // TTL 30 ngày
-    await this.cacheService.set(key, list, 30 * 24 * 60 * 60);
-  }
-  async getSeenBlogs(userId: number, page = 1, limit = 10) {
-    const key = `seen_posts:${userId}`;
-    const list = (await this.cacheService.get(key)) || [];
-
-    const start = (page - 1) * limit;
-    const end = start + limit;
-
-    const ids = list.slice(start, end);
-
-    return {
-      data: await this.findByIds(ids),
-      total: list.length,
-      page,
-      limit,
-    };
-  }
-  async saveBlog(userId: number, postId: number) {
-    const blog = await this.blogRepo.findOneBy({ id: postId });
-
-    if (!blog) throw new NotFoundException('Blog not found');
-
-    // Kiểm tra đã lưu chưa
-    const exist = await this.savePostRepo.findOneBy({ userId, postId });
-    if (exist) return exist;
-
-    const savePost = this.savePostRepo.create({ userId, postId });
-    return await this.savePostRepo.save(savePost);
-  }
-  async getSavedBlogs(userId: number, page = 1, limit = 10) {
-    const [items, total] = await this.savePostRepo.findAndCount({
-      where: { userId },
-      relations: ['blog'], // join blog để lấy thông tin blog
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { createdAt: 'DESC' },
+  async getStats() {
+    const blogs = await this.blogRepo.repo.find({
+      select: ['id', 'title'],
     });
-
-    return { items, total, page, limit };
+    return blogs;
   }
+
+  // async search(keyword: string, page = 1, limit = 10) {
+  //   return this.blogRepo
+  //     .createQueryBuilder('blog')
+  //     .leftJoin('blog.tags', 'tag')
+  //     .where('blog.title LIKE :keyword OR tag.name LIKE :keyword', {
+  //       keyword: `%${keyword}%`,
+  //     })
+  //     .distinct(true)
+  //     .skip((page - 1) * limit)
+  //     .take(limit)
+  //     .getMany();
+  // }
 }

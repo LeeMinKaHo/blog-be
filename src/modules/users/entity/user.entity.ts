@@ -53,7 +53,7 @@ export class User {
   @Column({ default: true })
   isActive: boolean;
 
-  @OneToOne(() => UserAdvance)
+  @OneToOne(() => UserAdvance )
   @JoinColumn()
   userAdvance: UserAdvance;
 

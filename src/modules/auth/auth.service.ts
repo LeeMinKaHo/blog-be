@@ -1,17 +1,19 @@
-import {  Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { CacheService } from '../cache/cache.service';
+import { SignUpDto } from './dto/sign-up.dto';
+import { UserRole } from '../users/entity/user.entity';
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly cacheService: CacheService,
-  ) {}
+  ) { }
   private async generateTokens(user: any) {
     const payload = {
       sub: user.id,
@@ -32,14 +34,14 @@ export class AuthService {
   }
 
   async signIn(loginDto: LoginDto): Promise<any> {
+    const { email, password } = loginDto;
 
-    const { email, password} = loginDto;
-    console.log(loginDto);
     const user = await this.usersService.findOneWithPassword(email);
 
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
     const passwordMatch = await bcrypt.compare(password, user.password);
+
     if (!passwordMatch) throw new UnauthorizedException('Invalid credentials');
 
     // Tạo token
@@ -65,5 +67,13 @@ export class AuthService {
       await this.cacheService.delete(`auth_token_${user.id}`);
     }
     return;
+  }
+
+  async signUp(signUpDto: SignUpDto) {
+    // chưa có send mail nên tạm thời lưu vào db
+    return this.usersService.create({
+      ...signUpDto,
+      role: 'User' as UserRole,
+    });
   }
 }
