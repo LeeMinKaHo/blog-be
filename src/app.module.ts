@@ -29,6 +29,8 @@ import { UserContextService } from './common/services/user-context.service';
 import { AuditSubscriber } from './common/subscribers/audit.subscriber';
 import { VerifiedGuard } from './common/guards/verified.guard';
 
+import { AdminModule } from './modules/admin/admin.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -70,6 +72,7 @@ import { VerifiedGuard } from './common/guards/verified.guard';
     BlogModule,
     CommentModule,
     FilesModule,
+    AdminModule,
   ],
   providers: [
     UserContextService,

@@ -18,10 +18,15 @@ import { UsersService } from './users.service';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
   @Get('profile')
   profile(@CurrentUser('sub') userId: number) {
     return this.usersService.profile(userId);
+  }
+
+  @Get('stats')
+  getStats(@CurrentUser('sub') userId: number) {
+    return this.usersService.getStats(userId);
   }
   @Put()
   @Roles(UserRole.USER)

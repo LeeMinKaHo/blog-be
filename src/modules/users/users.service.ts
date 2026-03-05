@@ -53,6 +53,11 @@ export class UsersService {
       .getOne();
   }
   async update(userId: number, dto: UpdateUserDto) {
+    // Nếu có name thì update bảng users trước
+    if (dto.name) {
+      await this.usersRepository.update(userId, { name: dto.name });
+    }
+
     // lấy userAdvance theo user_id
     const userAdvance = await this.userAdvanceRepo.findOne({
       where: { user: { id: userId } },
@@ -61,11 +66,13 @@ export class UsersService {
 
     if (!userAdvance) return null;
 
-    // chỉ update field nào có truyền vào
-    Object.assign(userAdvance, dto);
-    const { user } = await this.userAdvanceRepo.save(userAdvance);
-    // trả về bản đã update
-    return user;
+    // chỉ update field nào có truyền vào (bỏ name vì đã update riêng)
+    const { name: _name, ...rest } = dto;
+    Object.assign(userAdvance, rest);
+    await this.userAdvanceRepo.save(userAdvance);
+
+    // Tải lại profile đầy đủ
+    return this.profile(userId);
   }
 
   async remove(uuid: string): Promise<void> {
@@ -81,6 +88,31 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
     return user;
+  }
+
+  /** Thống kê hoạt động của user: số bài viết, lượt xem, bình luận, ngày tham gia */
+  async getStats(userId: number) {
+    const manager = this.usersRepository.manager;
+
+    const [blogStats] = await manager.query(
+      `SELECT COUNT(*) as totalPosts, COALESCE(SUM(views), 0) as totalViews
+       FROM blogs WHERE authorId = ? AND status != 'Delete'`,
+      [userId]
+    );
+
+    const [commentStats] = await manager.query(
+      `SELECT COUNT(*) as totalComments FROM comments WHERE userId = ? AND isActive = 1`,
+      [userId]
+    );
+
+    const user = await this.usersRepository.findOneBy({ id: userId });
+
+    return {
+      totalPosts: Number(blogStats?.totalPosts ?? 0),
+      totalViews: Number(blogStats?.totalViews ?? 0),
+      totalComments: Number(commentStats?.totalComments ?? 0),
+      joinedAt: user?.createdAt ?? null,
+    };
   }
 
   /** Lưu mã OTP và thời gian hết hạn vào DB */

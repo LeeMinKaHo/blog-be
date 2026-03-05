@@ -63,11 +63,13 @@ export class AuthController {
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 ngày
     });
 
-    // 👉 FE KHÔNG cần token
+    // 👉 FE nhận role để redirect đúng trang
     return {
       id: user.id,
       email: user.email,
       name: user.name,
+      role: user.role,
+      isVerified: user.isVerified,
     };
   }
   @Public()
@@ -128,10 +130,12 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: any) {
     // Trả về đầy đủ payload JWT, bao gồm isVerified
+    const role = Array.isArray(user.roles) ? user.roles[0] : user.roles;
     return {
       id: user.sub,
       email: user.email,
-      roles: user.roles,
+      role,                        // string — dùng cho AdminGuard, redirect
+      roles: user.roles,           // array — backward compat
       isVerified: user.isVerified ?? false,
     };
   }

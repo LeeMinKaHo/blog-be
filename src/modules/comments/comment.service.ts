@@ -23,6 +23,60 @@ export class CommentService {
    *  Helpers
    ======================================*/
 
+  async seedData() {
+    try {
+      const manager = this.commentRepo.manager;
+      // Lấy active blogs
+      const blogs = await manager.query(`SELECT id FROM blogs WHERE status = 'Pushlish' LIMIT 20`);
+      if (!blogs.length) return { message: 'No blogs available' };
+
+      const bcrypt = require('bcrypt');
+      const hash = await bcrypt.hash('123456', 10);
+      const uuidv4 = require('uuid').v4;
+
+      const emailPrefix = Date.now();
+      let numComments = 0;
+
+      for (let i = 1; i <= 5; i++) {
+        const email = `testuser_${emailPrefix}_${i}@example.com`;
+        const uuid = uuidv4();
+
+        const userRes = await manager.query(
+          `INSERT INTO users (email, password, name, role, isVerified, isActive, createdAt, uuid) 
+           VALUES (?, ?, ?, 'User', 1, 1, NOW(), ?)`,
+          [email, hash, `Lyt ${i}`, uuid]
+        );
+
+        const userId = userRes.insertId;
+
+        await manager.query(
+          `INSERT INTO users_advance (user_id, avatar) VALUES (?, ?)`,
+          [userId, `https://ui-avatars.com/api/?background=random&color=fff&name=Lyt+${i}`]
+        );
+
+        // Create 10 comments per user
+        for (let j = 0; j < 10; j++) {
+          const blog = blogs[Math.floor(Math.random() * blogs.length)];
+          const content = `Comment giả định số ${j + 1} từ ${email} - Bài viết rất hay và bổ ích, cảm ơn tác giả đã chia sẻ!`;
+          const randomDays = Math.floor(Math.random() * 30) + 1;
+
+          await manager.query(
+            `INSERT INTO comments (content, userId, postId, isActive, createdAt, updatedAt) 
+             VALUES (?, ?, ?, 1, DATE_SUB(NOW(), INTERVAL ? DAY), DATE_SUB(NOW(), INTERVAL ? DAY))`,
+            [content, userId, blog.id, randomDays, randomDays]
+          );
+          numComments++;
+        }
+      }
+
+      return { message: `Đã tạo xong 5 users với mật khẩu 123456 và ${numComments} comments!` };
+    } catch (e: any) {
+      console.error('Lỗi khi seedData:', e);
+      return { err: e.message, stack: e.stack };
+    }
+  }
+
+
   private async mustFindComment(id: number) {
     const comment = await this.commentRepo.findOneBy({ id });
     if (!comment) throw new NotFoundException('Comment not found');

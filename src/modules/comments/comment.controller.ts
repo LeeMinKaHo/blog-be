@@ -16,11 +16,19 @@ import { UpdateCommentDto } from './dto/update-comment.dto';
 
 @Controller('comments')
 export class CommentController {
-  constructor(private readonly commentService: CommentService) {}
+  constructor(private readonly commentService: CommentService) { }
+
+  // GET /comments/seed
+  @Public()
+  @Get('seed')
+  seed() {
+    return this.commentService.seedData();
+  }
 
   // GET /comments
   @Public()
   @Get()
+
   findAll() {
     return this.commentService.findAll();
   }
@@ -28,7 +36,7 @@ export class CommentController {
   // POST /comments
   @Post()
   create(@CurrentUser('sub') userId: number, @Body() dto: CreateCommentDto) {
-  
+
     return this.commentService.create(userId, dto);
   }
   @Post(':id/like')
