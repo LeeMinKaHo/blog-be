@@ -41,7 +41,7 @@ export class User {
   })
   role: UserRole;
 
-  @Column({ length: 4, nullable: true })
+  @Column({ length: 6, nullable: true })
   verificationCode: string;
 
   @Column({ default: false })
@@ -53,7 +53,7 @@ export class User {
   @Column({ default: true })
   isActive: boolean;
 
-  @OneToOne(() => UserAdvance )
+  @OneToOne(() => UserAdvance)
   @JoinColumn()
   userAdvance: UserAdvance;
 

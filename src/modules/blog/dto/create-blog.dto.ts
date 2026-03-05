@@ -6,7 +6,6 @@ export class CreateBlogDto {
     @IsNotEmpty()
     @ApiProperty()
     title: string
-    @MaxLength(2000)
     @IsNotEmpty()
     @ApiProperty()
     content: string
@@ -16,7 +15,7 @@ export class CreateBlogDto {
     @IsNotEmpty()
     @MaxLength(500)
     @ApiProperty()
-    descrtiption: string
+    description: string
     @MaxLength(2048)
     @ApiProperty()
     thumbnail: string

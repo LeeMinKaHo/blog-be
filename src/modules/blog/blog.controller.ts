@@ -19,6 +19,8 @@ import { PaginationQueryDto } from 'src/common/helper/pagination/pagination.dto'
 import { SkipThrottle } from '@nestjs/throttler';
 import { ApiQuery } from '@nestjs/swagger';
 import { BlogInteractionService } from './blog-interaction.service';
+import { RequireVerified } from 'src/common/decorators/require-verified.decorator';
+
 
 @SkipThrottle() // Bỏ qua giới hạn tốc độ cho tất cả các route trong controller này
 @Controller('blogs')
@@ -56,11 +58,22 @@ export class BlogsController {
   ) {
     return this.blogInteractionService.getSavedBlog(userId, +page, +limit);
   }
+
+  // Xóa bài viết khỏi danh sách đã lưu
+  @Delete('saved-blog/:postId')
+  unsaveBlog(
+    @CurrentUser('sub') userId: number,
+    @Param('postId') postId: number,
+  ) {
+    return this.blogInteractionService.removeSavedBlog(userId, +postId);
+  }
   @Post('')
   @Roles(UserRole.ADMIN, UserRole.MODERATOR)
+  @RequireVerified()
   create(@CurrentUser('sub') authorId: string, @Body() createBlogDto: CreateBlogDto) {
     return this.blogsService.create(+authorId, createBlogDto);
   }
+
   @ApiQuery({ name: 'search', required: false })
   @ApiQuery({ name: 'categoryId', required: false })
   @Public()
@@ -79,19 +92,45 @@ export class BlogsController {
     return this.blogsService.getCategories();
   }
 
+  /** Lấy bài viết của chính tôi (các trạng thái: DRAFT, PUSHLISH) */
+  @Get('my-blogs')
+  @Roles(UserRole.USER, UserRole.ADMIN, UserRole.MODERATOR)
+  findMyBlogs(
+    @CurrentUser('sub') userId: number,
+    @Query() pagination?: PaginationQueryDto,
+  ) {
+    return this.blogsService.findMyBlogs(+userId, pagination);
+  }
+
+  @Public()
+  @Post(':id/view')
+  incrementViews(@Param('id') id: string) {
+    return this.blogsService.incrementViews(+id);
+  }
+
   @Get(':id')
   @Public()
   findOne(@Param('id') id: string) {
     return this.blogsService.findOne(+id);
   }
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateBlogDto: UpdateBlogDto) {
-    return this.blogsService.update(+id, updateBlogDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateBlogDto: UpdateBlogDto,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.blogsService.update(+id, updateBlogDto, +userId);
   }
 
   @Delete(':id')
   @Roles(UserRole.ADMIN)
   remove(@Param('id') id: string) {
     return this.blogsService.delete(+id);
+  }
+
+  @Public()
+  @Post('seed-data')
+  async seed() {
+    return this.blogsService.seedData();
   }
 }

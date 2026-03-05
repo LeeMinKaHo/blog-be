@@ -6,6 +6,26 @@ import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from 'src/common/decorators/user.decorator';
 import { SignUpDto } from './dto/sign-up.dto';
+import { IsEmail, IsString, Length } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+
+class VerifyEmailDto {
+  @IsEmail()
+  @ApiProperty()
+  email: string;
+
+  @IsString()
+  @Length(6, 6)
+  @ApiProperty()
+  code: string;
+}
+
+class ResendVerificationDto {
+  @IsEmail()
+  @ApiProperty()
+  email: string;
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) { }
@@ -61,6 +81,43 @@ export class AuthController {
   async signUp(@Body() signUpDto: SignUpDto) {
     return this.authService.signUp(signUpDto);
   }
+
+  @Public()
+  @Post('verify-email')
+  async verifyEmail(
+    @Body() dto: VerifyEmailDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.verifyEmailAndRefreshToken(dto.email, dto.code);
+
+    // Phát hành token mới có isVerified = true vào cookie (không cần đăng nhập lại)
+    if (result.accessToken) {
+      res.cookie('accessToken', result.accessToken, {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 1000 * 60 * 15,
+      });
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 1000 * 60 * 60 * 24 * 7,
+      });
+    }
+
+    return { message: result.message };
+  }
+
+  @Public()
+  @Post('resend-verification')
+  @Throttle({ default: { ttl: 60, limit: 3 } })
+  async resendVerification(@Body() dto: ResendVerificationDto) {
+    return this.authService.resendVerification(dto.email);
+  }
+
   @Post('logout')
   logout(@Res({ passthrough: true }) res: Response) {
     res.clearCookie('accessToken', { path: '/' });
@@ -70,6 +127,12 @@ export class AuthController {
 
   @Get('me')
   me(@CurrentUser() user: any) {
-    return user;
+    // Trả về đầy đủ payload JWT, bao gồm isVerified
+    return {
+      id: user.sub,
+      email: user.email,
+      roles: user.roles,
+      isVerified: user.isVerified ?? false,
+    };
   }
 }

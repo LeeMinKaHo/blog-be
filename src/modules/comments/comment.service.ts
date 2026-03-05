@@ -17,7 +17,7 @@ export class CommentService {
     private readonly commentRepo: Repository<Comment>,
     @InjectRepository(CommentLike)
     private readonly likeRepo: Repository<CommentLike>,
-  ) {}
+  ) { }
 
   /** =====================================
    *  Helpers
@@ -76,7 +76,11 @@ export class CommentService {
       parentId,
     });
 
-    return this.findOne(result.identifiers[0].id);
+    // Trả về kèm user relation để FE hiển avatar/name ngay không cần refetch
+    return this.commentRepo.findOne({
+      where: { id: result.identifiers[0].id },
+      relations: { user: true },
+    });
   }
 
   /** UPDATE */
@@ -107,19 +111,32 @@ export class CommentService {
 
     return { message: 'Comment deleted successfully' };
   }
+  /** Lấy tất cả root comment của 1 bài viết (kèm user và số lượng reply) */
   async findByPost(postId: number) {
-    return this.commentRepo.find({
-      where: { postId },
-      relations: {
-        user: true,
-      },
-    });
+    const comments = await this.commentRepo
+      .createQueryBuilder('comment')
+      .leftJoinAndSelect('comment.user', 'user')
+      .loadRelationCountAndMap('comment.replyCount', 'comment.children', 'child', (qb) =>
+        qb.where('child.isActive = :a', { a: true }),
+      )
+      .where('comment.postId = :postId', { postId })
+      .andWhere('comment.parentId IS NULL')
+      .andWhere('comment.isActive = :active', { active: true })
+      .orderBy('comment.createdAt', 'DESC')
+      .getMany();
+
+    return comments;
   }
+
+  /** Lấy replies của 1 comment cha */
   async findReplies(commentId: number) {
-    return this.commentRepo.find({
-      where: { parentId: commentId },
-      relations: { user: true },
-    });
+    return this.commentRepo
+      .createQueryBuilder('comment')
+      .leftJoinAndSelect('comment.user', 'user')
+      .where('comment.parentId = :commentId', { commentId })
+      .andWhere('comment.isActive = :active', { active: true })
+      .orderBy('comment.createdAt', 'ASC')
+      .getMany();
   }
   async findByUser(userId: number) {
     return this.commentRepo.find({

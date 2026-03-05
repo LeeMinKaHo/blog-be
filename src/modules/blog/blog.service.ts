@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { CacheService } from '../cache/cache.service';
@@ -11,6 +12,7 @@ import { paginate } from 'src/common/helper/pagination/pagination';
 import { PaginationQueryDto } from 'src/common/helper/pagination/pagination.dto';
 import { Category } from './entity/category.entity';
 import { BlogRepository } from './blog.repository';
+import { User } from '../users/entity/user.entity';
 
 
 @Injectable()
@@ -51,6 +53,68 @@ export class BlogsService {
     return tagRepo.save(tag);
   }
 
+  async seedData() {
+    try {
+      // 1. Lấy user đầu tiên
+      const users = await this.dataSource.query('SELECT id FROM users LIMIT 1');
+      if (users.length === 0) {
+        throw new NotFoundException('Cần ít nhất 1 user trong DB để seed');
+      }
+      const userId = users[0].id;
+
+      // 2. Tạo categories
+      const categories = ['Công nghệ', 'Đời sống', 'Du lịch', 'Ẩm thực', 'Sức khỏe'];
+      for (const name of categories) {
+        const existing = await this.dataSource.query('SELECT id FROM categories WHERE name = ?', [name]);
+        if (existing.length === 0) {
+          await this.dataSource.query('INSERT INTO categories (name) VALUES (?)', [name]);
+        }
+      }
+
+      // Lấy lại list IDs category
+      const catResults = await this.dataSource.query('SELECT id FROM categories');
+      const catIds = catResults.map((c: any) => c.id);
+
+      // 3. Tạo 50 blogs bằng SQL
+      const titles = [
+        'Tiêu điểm công nghệ 2024',
+        'Cẩm nang du lịch tự túc',
+        'Món ngon mỗi ngày cho gia đình',
+        'Sống khỏe cùng chuyên gia',
+        'Bí quyết khởi nghiệp thành công',
+      ];
+
+      for (let i = 1; i <= 50; i++) {
+        const title = `${titles[i % titles.length]} - Phần ${i}`;
+        const catId = catIds[i % catIds.length];
+        const uuid = require('uuid').v4();
+
+        await this.dataSource.query(
+          `INSERT INTO blogs 
+          (uuid, title, description, content, thumbnail, categoryId, authorId, status, createdBy, updatedBy, createdAt, updatedAt, active) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), 1)`,
+          [
+            uuid,
+            title,
+            `Mô tả bài viết số ${i}`,
+            `Nội dung bài viết số ${i}`,
+            `https://picsum.photos/seed/${i}/800/450`,
+            catId,
+            userId,
+            'Pushlish', // BlogStatus.PUSHLISH
+            userId,
+            userId,
+          ]
+        );
+      }
+
+      return { message: 'Đã seed thành công 50 bài viết bằng RAW SQL!' };
+    } catch (err: any) {
+      console.error('Raw SQL Seed Error:', err);
+      throw err;
+    }
+  }
+
   private async processTagsFromDescription(
     description: string,
     manager: EntityManager,
@@ -67,7 +131,7 @@ export class BlogsService {
     // 1) Lưu DB bằng transaction
     const blog = await this.dataSource.transaction(async (manager) => {
       const tags = await this.processTagsFromDescription(
-        createBlogDto.descrtiption,
+        createBlogDto.description,
         manager,
       );
 
@@ -110,6 +174,20 @@ export class BlogsService {
     if (categoryId) {
       query.andWhere('blog.categoryId = :categoryId', { categoryId });
     }
+
+    return paginate(query, page, limit);
+  }
+
+  /** Lấy danh sách bài viết của chính user đăng nhập (cả 3 trạng thái: DRAFT, PUSHLISH, DELETE) */
+  async findMyBlogs(authorId: number, pagination?: PaginationQueryDto) {
+    const { page = 1, limit = 10 } = pagination ?? {};
+
+    const query = this.blogRepo.repo
+      .createQueryBuilder('blog')
+      .leftJoinAndSelect('blog.category', 'category')
+      .where('blog.authorId = :authorId', { authorId })
+      .andWhere('blog.status != :deleted', { deleted: BlogStatus.DELETE })
+      .orderBy('blog.createdAt', 'DESC');
 
     return paginate(query, page, limit);
   }
@@ -161,38 +239,54 @@ export class BlogsService {
       await this.cacheService.delete(cacheKey);
     });
   }
-  async update(id: number, updateBlogDto: Partial<Blog>): Promise<Blog> {
+  async update(id: number, updateBlogDto: UpdateBlogDto, requesterId: number): Promise<Blog> {
     const blog = await this.blogRepo.findOne(id);
+
+    // Chỉ chính tác giả mới được cập nhật
+    if (blog.authorId && blog.authorId !== requesterId) {
+      throw new ForbiddenException('Bạn không có quyền chỉnh sửa bài viết này');
+    }
 
     Object.assign(blog, updateBlogDto);
 
     await this.dataSource.transaction(async (manager) => {
-      // Lưu vào Database
       await manager.getRepository(Blog).save(blog);
-
-      // Lưu vào Cache - Nếu fail sẽ throw error và Rollback transaction
       await this.cacheService.set(`blog_${id}`, blog, 3600);
     });
 
     return blog;
   }
-  async getStats() {
-    const blogs = await this.blogRepo.repo.find({
-      select: ['id', 'title'],
-    });
-    return blogs;
-  }
 
-  // async search(keyword: string, page = 1, limit = 10) {
-  //   return this.blogRepo
-  //     .createQueryBuilder('blog')
-  //     .leftJoin('blog.tags', 'tag')
-  //     .where('blog.title LIKE :keyword OR tag.name LIKE :keyword', {
-  //       keyword: `%${keyword}%`,
-  //     })
-  //     .distinct(true)
-  //     .skip((page - 1) * limit)
-  //     .take(limit)
-  //     .getMany();
-  // }
+  /**
+   * Tăng lượt xem bài viết bằng pessimistic locking.
+   * Sử dụng `FOR UPDATE` lock để đảm bảo chỉ 1 transaction
+   * có thể đọc-và-ghi cột `views` tại một thời điểm,
+   * tránh race condition khi nhiều user xem đồng thời.
+   */
+  async incrementViews(id: number): Promise<{ views: number }> {
+    return this.dataSource.transaction(async (manager) => {
+      const blogRepo = manager.getRepository(Blog);
+
+      // 1️⃣ Khoá dòng (pessimistic_write = SELECT ... FOR UPDATE)
+      const blog = await blogRepo.findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!blog) {
+        throw new NotFoundException(`Blog #${id} không tồn tại`);
+      }
+
+      // 2️⃣ Tăng views
+      blog.views = (blog.views ?? 0) + 1;
+      await blogRepo.save(blog);
+
+      // 3️⃣ Cập nhật cache (bỏ qua nếu fail)
+      try {
+        await this.cacheService.set(`blog_${id}`, blog, 3600);
+      } catch { }
+
+      return { views: blog.views };
+    });
+  }
 }

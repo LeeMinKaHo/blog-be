@@ -27,6 +27,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { ClsModule } from 'nestjs-cls';
 import { UserContextService } from './common/services/user-context.service';
 import { AuditSubscriber } from './common/subscribers/audit.subscriber';
+import { VerifiedGuard } from './common/guards/verified.guard';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -79,6 +81,10 @@ import { AuditSubscriber } from './common/subscribers/audit.subscriber';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: VerifiedGuard,
     },
   ],
 })

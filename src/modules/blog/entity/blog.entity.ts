@@ -37,7 +37,10 @@ export class Blog extends BaseEntity {
   status: BlogStatus;
 
   @Column({ length: 500 })
-  descrtiption: string;
+  description: string;
+
+  @Column({ type: 'int', default: 0 })
+  views: number;
 
   // 🔥 Quan hệ blog — category
   @ManyToOne(() => Category, (category) => category.blogs)

@@ -74,12 +74,23 @@ export class BlogInteractionService {
 
         if (!blog) throw new NotFoundException('Blog not found');
 
-        // Kiểm tra đã lưu chưa
+        // Kiểm tra đã lưu chưa — nếu có thì bỏ lưu (toggle)
         const exist = await this.savePostRepo.findOneBy({ userId, postId });
-        if (exist) return exist;
+        if (exist) {
+            await this.savePostRepo.remove(exist);
+            return { saved: false, message: 'Đã bỏ lưu bài viết' };
+        }
 
         const savePost = this.savePostRepo.create({ userId, postId });
-        return await this.savePostRepo.save(savePost);
+        await this.savePostRepo.save(savePost);
+        return { saved: true, message: 'Đã lưu bài viết' };
+    }
+
+    async removeSavedBlog(userId: number, postId: number) {
+        const exist = await this.savePostRepo.findOneBy({ userId, postId });
+        if (!exist) throw new NotFoundException('Bài viết chưa được lưu');
+        await this.savePostRepo.remove(exist);
+        return { saved: false, message: 'Đã bỏ lưu bài viết' };
     }
 
     async getSavedBlog(userId: number, page: number = 1, limit: number = 10) {

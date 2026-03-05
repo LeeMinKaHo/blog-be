@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Xác thực tài khoản</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6fb;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#1e40af 0%,#3b82f6 100%);padding:36px 40px;text-align:center;">
+              <div style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:12px;padding:10px 20px;margin-bottom:16px;">
+                <span style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.5px;">📝 Foxtek Blog</span>
+              </div>
+              <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;line-height:1.3;">
+                Xác thực tài khoản của bạn
+              </h1>
+              <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">
+                Chỉ một bước nữa để bắt đầu hành trình!
+              </p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px;">
+              <p style="margin:0 0 8px;color:#374151;font-size:16px;font-weight:600;">
+                Xin chào <strong>{{name}}</strong> 👋
+              </p>
+              <p style="margin:0 0 28px;color:#6b7280;font-size:14px;line-height:1.6;">
+                Cảm ơn bạn đã đăng ký tài khoản tại <strong>Foxtek Blog</strong>.
+                Vui lòng nhập mã OTP dưới đây để xác thực email của bạn.
+              </p>
+
+              <!-- OTP Box -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="padding:0 0 28px;">
+                    <div style="background:#eff6ff;border:2px dashed #93c5fd;border-radius:16px;padding:28px 40px;display:inline-block;">
+                      <p style="margin:0 0 8px;color:#6b7280;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">
+                        Mã xác thực của bạn
+                      </p>
+                      <div style="font-size:44px;font-weight:900;letter-spacing:12px;color:#1e40af;font-family:'Courier New',monospace;">
+                        {{code}}
+                      </div>
+                      <p style="margin:12px 0 0;color:#9ca3af;font-size:12px;">
+                        ⏱ Mã có hiệu lực trong <strong>10 phút</strong>
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Warning -->
+              <div style="background:#fef9c3;border-left:4px solid #f59e0b;border-radius:8px;padding:14px 16px;margin-bottom:28px;">
+                <p style="margin:0;color:#92400e;font-size:13px;line-height:1.5;">
+                  ⚠️ <strong>Lưu ý bảo mật:</strong> Không chia sẻ mã này với bất kỳ ai.
+                  Foxtek Blog sẽ không bao giờ yêu cầu mã OTP qua điện thoại hay chat.
+                </p>
+              </div>
+
+              <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
+                Nếu bạn không đăng ký tài khoản này, hãy bỏ qua email này.
+                Email của bạn sẽ không được sử dụng nếu không xác thực.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f8fafc;border-top:1px solid #e5e7eb;padding:20px 40px;text-align:center;">
+              <p style="margin:0;color:#9ca3af;font-size:12px;">
+                © 2026 Foxtek Blog · Email này được gửi tự động, vui lòng không trả lời.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

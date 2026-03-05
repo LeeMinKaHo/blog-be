@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
@@ -7,18 +7,23 @@ import { LoginDto } from './dto/login.dto';
 import { CacheService } from '../cache/cache.service';
 import { SignUpDto } from './dto/sign-up.dto';
 import { UserRole } from '../users/entity/user.entity';
+import { MailService } from '../mail/mail.service';
+
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly cacheService: CacheService,
+    private readonly mailService: MailService,
   ) { }
+
   private async generateTokens(user: any) {
     const payload = {
       sub: user.id,
       email: user.email,
       roles: [user.role],
+      isVerified: user.isVerified, // đưa vào token để FE / Guard kiểm tra
     };
 
     const accessToken = await this.jwtService.signAsync(payload, {
@@ -33,6 +38,11 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  /** Sinh mã OTP 6 chữ số */
+  private generateOtp(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
   async signIn(loginDto: LoginDto): Promise<any> {
     const { email, password } = loginDto;
 
@@ -43,6 +53,9 @@ export class AuthService {
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) throw new UnauthorizedException('Invalid credentials');
+
+    // ✅ Cho phép login dù chưa xác thực — chỉ hạn chế một số tính năng
+    // FE sẽ nhận isVerified qua token và hiển cảnh báo UI
 
     // Tạo token
     const { accessToken, refreshToken } = await this.generateTokens(user);
@@ -55,9 +68,13 @@ export class AuthService {
     );
 
     return {
-      user,
+      user: {
+        ...user,
+        password: undefined, // không trả về password
+      },
       accessToken,
       refreshToken,
+      isVerified: user.isVerified,
     };
   }
 
@@ -70,10 +87,73 @@ export class AuthService {
   }
 
   async signUp(signUpDto: SignUpDto) {
-    // chưa có send mail nên tạm thời lưu vào db
-    return this.usersService.create({
+    // Tạo user chưa xác thực
+    const user = await this.usersService.create({
       ...signUpDto,
       role: 'User' as UserRole,
     });
+
+    // Sinh OTP và lưu DB
+    const otp = this.generateOtp();
+    await this.usersService.saveVerificationCode(user.id, otp);
+
+    // Gửi email xác thực (không await để không block response)
+    this.mailService
+      .sendVerificationCode(user.email, user.name, otp)
+      .catch((err) => console.error('Gửi mail thất bại:', err));
+
+    return {
+      message: 'Đăng ký thành công! Vui lòng kiểm tra email để lấy mã OTP xác thực.',
+      email: user.email,
+    };
+  }
+
+  /** Xác thực OTP do user nhập */
+  async verifyEmail(email: string, code: string) {
+    const user = await this.usersService.verifyCode(email, code);
+    return {
+      message: 'Xác thực email thành công! Bạn có thể đăng nhập ngay bây giờ.',
+      userId: user.id,
+      email: user.email,
+    };
+  }
+
+  /**
+   * Xác thực OTP + phát hành token mới có isVerified=true ngay lập tức.
+   * Dùng khi user đang đăng nhập nhưng chưa verify, click "Xác thực ngay" từ banner.
+   */
+  async verifyEmailAndRefreshToken(email: string, code: string) {
+    // 1. Verify OTP (throw nếu sai mã)
+    const user = await this.usersService.verifyCode(email, code);
+
+    // 2. Tạo token mới — lần này isVerified = true
+    const { accessToken, refreshToken } = await this.generateTokens(user);
+
+    // 3. Lưu refresh token vào cache
+    await this.cacheService.set(
+      `refresh_token_${user.id}`,
+      refreshToken,
+      7 * 24 * 3600,
+    );
+
+    return {
+      message: 'Xác thực email thành công!',
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  /** Gửi lại OTP (resend) */
+  async resendVerification(email: string) {
+    const user = await this.usersService.findOneByEmail(email);
+    if (!user) throw new BadRequestException('Email không tồn tại');
+    if (user.isVerified) throw new BadRequestException('Tài khoản đã được xác thực rồi');
+
+    const otp = this.generateOtp();
+    await this.usersService.saveVerificationCode(user.id, otp);
+
+    await this.mailService.sendVerificationCode(user.email, user.name, otp);
+
+    return { message: 'Đã gửi lại mã OTP. Vui lòng kiểm tra email!' };
   }
 }
