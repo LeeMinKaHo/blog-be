@@ -10,6 +10,10 @@ import { Comment } from './comment.entity';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 import { CommentLike } from './comment-like.entity';
+import { NotificationService } from '../notifications/notification.service';
+import { NotificationGateway } from '../notifications/notification.gateway';
+import { NotificationType } from '../notifications/notification.entity';
+
 @Injectable()
 export class CommentService {
   constructor(
@@ -17,7 +21,10 @@ export class CommentService {
     private readonly commentRepo: Repository<Comment>,
     @InjectRepository(CommentLike)
     private readonly likeRepo: Repository<CommentLike>,
+    private readonly notificationService: NotificationService,
+    private readonly notificationGateway: NotificationGateway,
   ) { }
+
 
   /** =====================================
    *  Helpers
@@ -219,15 +226,34 @@ export class CommentService {
 
     await this.likeRepo.save(this.likeRepo.create({ userId, commentId }));
 
+
     const newTotal = comment.totalLike + 1;
 
     await this.commentRepo.update({ id: commentId }, { totalLike: newTotal });
 
+
+    // Gửi thông báo (chỉ gửi nếu bình luận có tác giả)
+    if (comment.userId) {
+      const notification = await this.notificationService.createNotification({
+        recipientId: comment.userId,
+        senderId: userId,
+        type: NotificationType.LIKE_COMMENT,
+        targetId: commentId,
+        content: `đã thích bình luận của bạn: "${comment.content.substring(0, 50)}${comment.content.length > 50 ? '...' : ''}"`,
+      });
+
+      if (notification) {
+        this.notificationGateway.sendNotificationToUser(comment.userId, notification);
+      }
+    }
+
     return {
+
       liked: true,
       totalLike: newTotal,
     };
   }
+
 
   async unlikeComment(userId: number, commentId: number) {
     const existing = await this.likeRepo.findOne({

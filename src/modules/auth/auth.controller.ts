@@ -130,12 +130,12 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: any) {
     // Trả về đầy đủ payload JWT, bao gồm isVerified
-    const role = Array.isArray(user.roles) ? user.roles[0] : user.roles;
+    const role = user.role || (Array.isArray(user.roles) ? user.roles[0] : user.roles);
     return {
       id: user.sub,
       email: user.email,
       role,                        // string — dùng cho AdminGuard, redirect
-      roles: user.roles,           // array — backward compat
+      roles: user.roles || [role], // array — backward compat
       isVerified: user.isVerified ?? false,
     };
   }

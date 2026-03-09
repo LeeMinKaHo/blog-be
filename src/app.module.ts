@@ -17,6 +17,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { Blog } from './modules/blog/entity/blog.entity';
 import { Category } from './modules/blog/entity/category.entity';
 import { SavePost } from './modules/blog/entity/save-post.entity';
+import { BlogLike } from './modules/blog/entity/blog-like.entity';
 import { Tag } from './modules/blog/entity/tag.entity';
 import { CommentLike } from './modules/comments/comment-like.entity';
 import { Comment } from './modules/comments/comment.entity';
@@ -30,6 +31,9 @@ import { AuditSubscriber } from './common/subscribers/audit.subscriber';
 import { VerifiedGuard } from './common/guards/verified.guard';
 
 import { AdminModule } from './modules/admin/admin.module';
+import { NotificationModule } from './modules/notifications/notification.module';
+import { Notification } from './modules/notifications/notification.entity';
+
 
 @Module({
   imports: [
@@ -56,8 +60,10 @@ import { AdminModule } from './modules/admin/admin.module';
         Tag,
         Category,
         SavePost,
+        BlogLike,
         Comment,
         CommentLike,
+        Notification,
       ],
       subscribers: [AuditSubscriber],
     }),
@@ -73,6 +79,7 @@ import { AdminModule } from './modules/admin/admin.module';
     CommentModule,
     FilesModule,
     AdminModule,
+    NotificationModule,
   ],
   providers: [
     UserContextService,

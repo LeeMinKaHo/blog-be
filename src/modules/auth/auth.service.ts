@@ -22,7 +22,8 @@ export class AuthService {
     const payload = {
       sub: user.id,
       email: user.email,
-      roles: [user.role],
+      role: user.role, // single role as string
+      roles: [user.role], // array for compatibility
       isVerified: user.isVerified, // đưa vào token để FE / Guard kiểm tra
     };
 

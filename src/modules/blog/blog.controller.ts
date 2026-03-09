@@ -49,6 +49,13 @@ export class BlogsController {
     return this.blogInteractionService.addSavedBlog(userId, postId);
   }
 
+  // Like bài blog
+  @Post('like-blog')
+  likeBlog(@CurrentUser('sub') userId: number, @Body('postId') postId: number) {
+    return this.blogInteractionService.toggleLikeBlog(userId, postId);
+  }
+
+
   // Lấy danh sách blog đã lưu (có phân trang)
   @Get('saved-blogs')
   getSavedBlogs(

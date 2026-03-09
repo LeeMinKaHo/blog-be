@@ -6,15 +6,25 @@ import { Blog } from './entity/blog.entity';
 import { SavePost } from './entity/save-post.entity';
 import { BlogRepository } from './blog.repository';
 import { paginate } from 'src/common/helper/pagination/pagination';
+import { BlogLike } from './entity/blog-like.entity';
+import { NotificationService } from '../notifications/notification.service';
+import { NotificationGateway } from '../notifications/notification.gateway';
+import { NotificationType } from '../notifications/notification.entity';
+
 
 @Injectable()
 export class BlogInteractionService {
     constructor(
         @InjectRepository(SavePost)
         private readonly savePostRepo: Repository<SavePost>,
+        @InjectRepository(BlogLike)
+        private readonly blogLikeRepo: Repository<BlogLike>,
         private readonly cacheService: CacheService,
         private readonly blogRepo: BlogRepository,
+        private readonly notificationService: NotificationService,
+        private readonly notificationGateway: NotificationGateway,
     ) { }
+
 
     async findByIds(ids: number[]): Promise<Blog[]> {
         if (!ids || !ids.length) return [];
@@ -101,4 +111,45 @@ export class BlogInteractionService {
 
         return paginate(query, page, limit);
     }
+
+    async toggleLikeBlog(userId: number, postId: number) {
+        const blog = await this.blogRepo.repo.findOneBy({ id: postId });
+        if (!blog) throw new NotFoundException('Blog not found');
+
+        const exist = await this.blogLikeRepo.findOneBy({ userId, blogId: postId });
+        if (exist) {
+            await this.blogLikeRepo.remove(exist);
+            const newTotal = Math.max(0, (blog.totalLikes || 0) - 1);
+            await this.blogRepo.repo.update({ id: postId }, { totalLikes: newTotal });
+            return { liked: false, totalLikes: newTotal };
+        }
+
+        const blogLike = this.blogLikeRepo.create({ userId, blogId: postId });
+        await this.blogLikeRepo.save(blogLike);
+
+        const newTotal = (blog.totalLikes || 0) + 1;
+        await this.blogRepo.repo.update({ id: postId }, { totalLikes: newTotal });
+        console.log('blog', blog);
+        // Chỉ gửi thông báo nếu bài viết có tác giả
+        if (blog.authorId) {
+            console.log('blog.authorId', blog.authorId);
+            const notification = await this.notificationService.createNotification({
+                recipientId: blog.authorId,
+                senderId: userId,
+                type: NotificationType.LIKE_POST,
+                targetId: postId,
+                content: `đã thích bài viết của bạn: "${blog.title.substring(0, 50)}${blog.title.length > 50 ? '...' : ''}"`,
+            });
+
+            if (notification) {
+                console.log('send notification to user', blog.authorId);
+                this.notificationGateway.sendNotificationToUser(blog.authorId, notification);
+            }
+        }
+
+
+        return { liked: true, totalLikes: newTotal };
+    }
+
 }
+

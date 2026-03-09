@@ -42,6 +42,9 @@ export class Blog extends BaseEntity {
   @Column({ type: 'int', default: 0 })
   views: number;
 
+  @Column({ type: 'int', default: 0 })
+  totalLikes: number;
+
   // 🔥 Quan hệ blog — category
   @ManyToOne(() => Category, (category) => category.blogs)
   @JoinColumn({ name: 'categoryId' })
