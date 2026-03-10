@@ -76,7 +76,6 @@ export class BlogsController {
   }
   @Post('')
   @Roles(UserRole.ADMIN, UserRole.MODERATOR)
-  @RequireVerified()
   create(@CurrentUser('sub') authorId: string, @Body() createBlogDto: CreateBlogDto) {
     return this.blogsService.create(+authorId, createBlogDto);
   }

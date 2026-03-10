@@ -29,7 +29,6 @@ export class UsersController {
     return this.usersService.getStats(userId);
   }
   @Put()
-  @Roles(UserRole.USER)
   update(
     @CurrentUser('sub') userId: number,
     @Body() updateUserDto: UpdateUserDto,
