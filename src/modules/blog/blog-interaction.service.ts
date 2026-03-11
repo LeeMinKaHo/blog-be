@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { CacheService } from '../cache/cache.service';
-import { Blog } from './entity/blog.entity';
+import { Blog, BlogStatus } from './entity/blog.entity';
 import { SavePost } from './entity/save-post.entity';
 import { BlogRepository } from './blog.repository';
 import { paginate } from 'src/common/helper/pagination/pagination';
@@ -30,7 +30,7 @@ export class BlogInteractionService {
         if (!ids || !ids.length) return [];
 
         const posts = await this.blogRepo.repo.find({
-            where: { id: In(ids) },
+            where: { id: In(ids), status: BlogStatus.PUSHLISH },
         });
 
         // Giữ đúng thứ tự như mảng input
@@ -80,9 +80,9 @@ export class BlogInteractionService {
     }
 
     async addSavedBlog(userId: number, postId: number) {
-        const blog = await this.blogRepo.repo.findOneBy({ id: postId });
+        const blog = await this.blogRepo.repo.findOneBy({ id: postId, status: BlogStatus.PUSHLISH });
 
-        if (!blog) throw new NotFoundException('Blog not found');
+        if (!blog) throw new NotFoundException('Blog not found or not published');
 
         // Kiểm tra đã lưu chưa — nếu có thì bỏ lưu (toggle)
         const exist = await this.savePostRepo.findOneBy({ userId, postId });
@@ -107,14 +107,15 @@ export class BlogInteractionService {
         const query = this.savePostRepo.createQueryBuilder('savePost')
             .leftJoinAndSelect('savePost.blog', 'blog')
             .where('savePost.userId = :userId', { userId })
+            .andWhere('blog.status = :status', { status: BlogStatus.PUSHLISH })
             .orderBy('savePost.createdAt', 'DESC');
 
         return paginate(query, page, limit);
     }
 
     async toggleLikeBlog(userId: number, postId: number) {
-        const blog = await this.blogRepo.repo.findOneBy({ id: postId });
-        if (!blog) throw new NotFoundException('Blog not found');
+        const blog = await this.blogRepo.repo.findOneBy({ id: postId, status: BlogStatus.PUSHLISH });
+        if (!blog) throw new NotFoundException('Blog not found or not published');
 
         const exist = await this.blogLikeRepo.findOneBy({ userId, blogId: postId });
         if (exist) {

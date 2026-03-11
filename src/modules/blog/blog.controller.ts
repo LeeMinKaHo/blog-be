@@ -116,8 +116,8 @@ export class BlogsController {
 
   @Get(':id')
   @Public()
-  findOne(@Param('id') id: string) {
-    return this.blogsService.findOne(+id);
+  findOne(@Param('id') id: string, @CurrentUser('sub') userId?: string) {
+    return this.blogsService.findOne(+id, userId ? +userId : undefined);
   }
   @Put(':id')
   update(

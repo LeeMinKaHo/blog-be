@@ -135,8 +135,7 @@ export class BlogsService {
         manager,
       );
 
-      const status = createBlogDto.status ||
-        (createBlogDto as any).type === 'draft' ? BlogStatus.DRAFT :
+      const status = (createBlogDto as any).type === 'draft' ? BlogStatus.DRAFT :
         (createBlogDto as any).type === 'publish' || (createBlogDto as any).type === 'pushlish' ? BlogStatus.PUSHLISH :
           BlogStatus.PUSHLISH;
 
@@ -181,6 +180,8 @@ export class BlogsService {
       query.andWhere('blog.categoryId = :categoryId', { categoryId });
     }
 
+    query.andWhere('blog.status = :status', { status: BlogStatus.PUSHLISH });
+
     return paginate(query, page, limit);
   }
 
@@ -202,8 +203,8 @@ export class BlogsService {
     return this.categoryRepo.find({ order: { name: 'ASC' } });
   }
 
-  async findOne(id: number): Promise<Blog> {
-    const cacheKey = `blog_${id}`;
+  async findOne(id: number, requesterId?: number): Promise<Blog> {
+    const cacheKey = requesterId ? `blog_${id}_user_${requesterId}` : `blog_${id}`;
 
     // 1️⃣ Check cache
     const cached = await this.cacheService.get(cacheKey);
@@ -213,6 +214,10 @@ export class BlogsService {
 
     // 2️⃣ Nếu không có cache → query DB
     const blog = await this.blogRepo.findOne(id, { category: true });
+
+    if (blog.status !== BlogStatus.PUSHLISH && blog.authorId !== requesterId) {
+      throw new NotFoundException('Blog not found or not published');
+    }
 
     // 3️⃣ Cache kết quả (không block nếu cache fail)
     try {
@@ -253,13 +258,15 @@ export class BlogsService {
       throw new ForbiddenException('Bạn không có quyền chỉnh sửa bài viết này');
     }
 
-    const status = updateBlogDto.status ||
-      (updateBlogDto as any).type === 'draft' ? BlogStatus.DRAFT :
-      (updateBlogDto as any).type === 'publish' || (updateBlogDto as any).type === 'pushlish' ? BlogStatus.PUSHLISH :
-        updateBlogDto.status;
+    const type = (updateBlogDto as any).type;
+    if (type) {
+      if (type === 'draft') blog.status = BlogStatus.DRAFT;
+      else if (type === 'publish' || type === 'pushlish') blog.status = BlogStatus.PUSHLISH;
+    } else if (updateBlogDto.status) {
+      blog.status = updateBlogDto.status;
+    }
 
     Object.assign(blog, updateBlogDto);
-    if (status) blog.status = status;
 
     await this.dataSource.transaction(async (manager) => {
       await manager.getRepository(Blog).save(blog);

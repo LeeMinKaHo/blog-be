@@ -1,6 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger"
-import { IsEnum, IsNotEmpty, IsOptional, MaxLength } from "class-validator"
-import { BlogStatus } from "../entity/blog.entity"
+import { IsNotEmpty, MaxLength, IsOptional } from "class-validator"
 
 export class CreateBlogDto {
     @MaxLength(125)
@@ -20,10 +19,6 @@ export class CreateBlogDto {
     @MaxLength(2048)
     @ApiProperty()
     thumbnail: string
-    @IsOptional()
-    @IsEnum(BlogStatus)
-    @ApiProperty({ enum: BlogStatus, required: false })
-    status?: BlogStatus
 
     @IsOptional()
     @ApiProperty({ required: false })
