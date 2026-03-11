@@ -23,5 +23,8 @@ export class UpdateBlogDto {
   status: BlogStatus;
 
   @IsOptional()
+  type?: string;
+
+  @IsOptional()
   categoryId: number;
 }

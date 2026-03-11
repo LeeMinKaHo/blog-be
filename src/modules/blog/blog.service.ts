@@ -135,8 +135,14 @@ export class BlogsService {
         manager,
       );
 
+      const status = createBlogDto.status ||
+        (createBlogDto as any).type === 'draft' ? BlogStatus.DRAFT :
+        (createBlogDto as any).type === 'publish' || (createBlogDto as any).type === 'pushlish' ? BlogStatus.PUSHLISH :
+          BlogStatus.PUSHLISH;
+
       const blogEntity = manager.getRepository(Blog).create({
         ...createBlogDto,
+        status,
         tags,
         authorId,
       });
@@ -247,7 +253,13 @@ export class BlogsService {
       throw new ForbiddenException('Bạn không có quyền chỉnh sửa bài viết này');
     }
 
+    const status = updateBlogDto.status ||
+      (updateBlogDto as any).type === 'draft' ? BlogStatus.DRAFT :
+      (updateBlogDto as any).type === 'publish' || (updateBlogDto as any).type === 'pushlish' ? BlogStatus.PUSHLISH :
+        updateBlogDto.status;
+
     Object.assign(blog, updateBlogDto);
+    if (status) blog.status = status;
 
     await this.dataSource.transaction(async (manager) => {
       await manager.getRepository(Blog).save(blog);

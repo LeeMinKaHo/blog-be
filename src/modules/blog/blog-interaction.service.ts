@@ -129,10 +129,10 @@ export class BlogInteractionService {
 
         const newTotal = (blog.totalLikes || 0) + 1;
         await this.blogRepo.repo.update({ id: postId }, { totalLikes: newTotal });
-        console.log('blog', blog);
+
         // Chỉ gửi thông báo nếu bài viết có tác giả
         if (blog.authorId) {
-            console.log('blog.authorId', blog.authorId);
+
             const notification = await this.notificationService.createNotification({
                 recipientId: blog.authorId,
                 senderId: userId,
