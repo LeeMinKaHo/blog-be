@@ -162,7 +162,8 @@ export class BlogsService {
       .createQueryBuilder('blog')
       .leftJoinAndSelect('blog.category', 'category')
       .leftJoinAndSelect('blog.createdBy', 'createdBy')
-      .leftJoinAndSelect('blog.updatedBy', 'updatedBy');
+      .leftJoinAndSelect('blog.updatedBy', 'updatedBy')
+      .where('blog.status = :status', { status: BlogStatus.PUSHLISH });
 
     if (search) {
       query.andWhere(
@@ -201,21 +202,29 @@ export class BlogsService {
 
     // 1️⃣ Check cache
     const cached = await this.cacheService.get(cacheKey);
+    let blog: Blog;
+
     if (cached) {
-      return cached as Blog;
+      blog = cached as Blog;
+    } else {
+      // 2️⃣ Nếu không có cache → query DB
+      blog = await this.blogRepo.findOne(id, { category: true });
+
+      // 3️⃣ Cache kết quả (không block nếu cache fail)
+      if (blog) {
+        try {
+          await this.cacheService.set(cacheKey, blog, 3600); // TTL 1 giờ
+        } catch (err) {
+          console.error('⚠ Cache set failed:', err);
+        }
+      }
     }
 
-    // 2️⃣ Nếu không có cache → query DB
-    const blog = await this.blogRepo.findOne(id, { category: true });
-
-    // 3️⃣ Cache kết quả (không block nếu cache fail)
-    try {
-      await this.cacheService.set(cacheKey, blog, 3600); // TTL 1 giờ
-    } catch (err) {
-      console.error('⚠ Cache set failed:', err);
+    // 🔥 Chỉ trả về nếu status là Pushlish
+    if (!blog || blog.status !== BlogStatus.PUSHLISH) {
+      throw new NotFoundException(`Bài viết không tồn tại hoặc chưa được xuất bản`);
     }
 
-    // 4️⃣ Trả về blog
     return blog;
   }
 
