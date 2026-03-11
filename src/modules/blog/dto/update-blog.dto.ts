@@ -24,7 +24,4 @@ export class UpdateBlogDto {
 
   @IsOptional()
   categoryId: number;
-
-  @IsOptional()
-  type?: string;
 }

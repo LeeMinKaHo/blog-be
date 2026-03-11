@@ -9,7 +9,6 @@ import { Repository } from 'typeorm';
 import { Comment } from './comment.entity';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
-import { Blog, BlogStatus } from '../blog/entity/blog.entity';
 import { CommentLike } from './comment-like.entity';
 import { NotificationService } from '../notifications/notification.service';
 import { NotificationGateway } from '../notifications/notification.gateway';
@@ -130,11 +129,6 @@ export class CommentService {
   /** CREATE */
   async create(userId: number, dto: CreateCommentDto) {
     const parentId = await this.validateParent(dto.parentId);
-
-    const blog = await this.commentRepo.manager.getRepository(Blog).findOneBy({ id: dto.postId, status: BlogStatus.PUSHLISH });
-    if (!blog) {
-      throw new NotFoundException('Blog not found or not published');
-    }
 
     const result = await this.commentRepo.insert({
       content: dto.content,

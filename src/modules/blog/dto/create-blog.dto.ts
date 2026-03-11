@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger"
-import { IsNotEmpty, MaxLength, IsOptional } from "class-validator"
+import { IsNotEmpty, MaxLength } from "class-validator"
 
 export class CreateBlogDto {
     @MaxLength(125)
@@ -19,8 +19,4 @@ export class CreateBlogDto {
     @MaxLength(2048)
     @ApiProperty()
     thumbnail: string
-
-    @IsOptional()
-    @ApiProperty({ required: false })
-    type?: string
 }
