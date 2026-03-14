@@ -16,57 +16,108 @@ export class AdminService {
 
     /** Tổng quan số liệu hệ thống */
     async getSystemStats() {
-        const manager = this.dataSource.manager;
+        try {
+            const manager = this.dataSource.manager;
 
-        const [blogs] = await manager.query(
-            `SELECT COUNT(*) as total,
-              SUM(status = 'Pushlish') as published,
-              SUM(status = 'Draft') as drafts,
-              COALESCE(SUM(views), 0) as totalViews
-       FROM blogs WHERE status != 'Delete'`
-        );
+            // 1. Stats cơ bản
+            const blogsResult = await manager.query(
+                `SELECT COUNT(*) as total,
+                  SUM(CASE WHEN status = 'Pushlish' THEN 1 ELSE 0 END) as published,
+                  SUM(CASE WHEN status = 'Draft' THEN 1 ELSE 0 END) as drafts,
+                  COALESCE(SUM(views), 0) as totalViews
+                FROM blogs WHERE status != 'Delete'`
+            );
+            const blogs = blogsResult[0];
 
-        const [users] = await manager.query(
-            `SELECT COUNT(*) as total,
-              SUM(isActive = 1) as active,
-              SUM(isVerified = 0) as unverified,
-              SUM(role = 'Admin') as admins
-       FROM users`
-        );
+            const usersResult = await manager.query(
+                `SELECT COUNT(*) as total,
+                  SUM(CASE WHEN isActive = 1 THEN 1 ELSE 0 END) as active,
+                  SUM(CASE WHEN isVerified = 0 THEN 1 ELSE 0 END) as unverified,
+                  SUM(CASE WHEN role = 'Admin' THEN 1 ELSE 0 END) as admins
+                FROM users`
+            );
+            const users = usersResult[0];
 
-        const [comments] = await manager.query(
-            `SELECT COUNT(*) as total FROM comments WHERE isActive = 1`
-        );
+            const commentsResult = await manager.query(
+                `SELECT COUNT(*) as total FROM comments WHERE isActive = 1`
+            );
+            const comments = commentsResult[0];
 
-        // Bài viết mới nhất (trong 7 ngày)
-        const [recentBlogs] = await manager.query(
-            `SELECT COUNT(*) as count FROM blogs WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)`
-        );
+            const recentBlogsResult = await manager.query(
+                `SELECT COUNT(*) as count FROM blogs WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)`
+            );
+            const recentBlogs = recentBlogsResult[0];
 
-        // User mới nhất (trong 7 ngày)
-        const [recentUsers] = await manager.query(
-            `SELECT COUNT(*) as count FROM users WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)`
-        );
+            const recentUsersResult = await manager.query(
+                `SELECT COUNT(*) as count FROM users WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)`
+            );
+            const recentUsers = recentUsersResult[0];
 
-        return {
-            blogs: {
-                total: Number(blogs.total),
-                published: Number(blogs.published),
-                drafts: Number(blogs.drafts),
-                totalViews: Number(blogs.totalViews),
-                recentWeek: Number(recentBlogs.count),
-            },
-            users: {
-                total: Number(users.total),
-                active: Number(users.active),
-                unverified: Number(users.unverified),
-                admins: Number(users.admins),
-                recentWeek: Number(recentUsers.count),
-            },
-            comments: {
-                total: Number(comments.total),
-            },
-        };
+            // 2. Dữ liệu biểu đồ (14 ngày qua)
+            const userGrowth = await manager.query(
+                `SELECT DATE_FORMAT(createdAt, '%d/%m') as date, COUNT(*) as count 
+                 FROM users 
+                 WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 14 DAY) 
+                 GROUP BY date 
+                 ORDER BY MIN(createdAt) ASC`
+            );
+
+            const blogGrowth = await manager.query(
+                `SELECT DATE_FORMAT(createdAt, '%d/%m') as date, COUNT(*) as count 
+                 FROM blogs 
+                 WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 14 DAY) AND status != 'Delete'
+                 GROUP BY date 
+                 ORDER BY MIN(createdAt) ASC`
+            );
+
+            // 3. Phân bổ category
+            const categoryStats = await manager.query(
+                `SELECT c.name, COUNT(b.id) as count 
+                 FROM categories c 
+                 LEFT JOIN blogs b ON c.id = b.categoryId AND b.status != 'Delete'
+                 GROUP BY c.id 
+                 ORDER BY count DESC 
+                 LIMIT 5`
+            );
+
+            // 4. Top bài viết xem nhiều
+            const topBlogs = await manager.query(
+                `SELECT title, views 
+                 FROM blogs 
+                 WHERE status = 'Pushlish' 
+                 ORDER BY views DESC 
+                 LIMIT 5`
+            );
+
+            return {
+                blogs: {
+                    total: Number(blogs?.total || 0),
+                    published: Number(blogs?.published || 0),
+                    drafts: Number(blogs?.drafts || 0),
+                    totalViews: Number(blogs?.totalViews || 0),
+                    recentWeek: Number(recentBlogs?.count || 0),
+                },
+                users: {
+                    total: Number(users?.total || 0),
+                    active: Number(users?.active || 0),
+                    unverified: Number(users?.unverified || 0),
+                    admins: Number(users?.admins || 0),
+                    recentWeek: Number(recentUsers?.count || 0),
+                },
+                comments: {
+                    total: Number(comments?.total || 0),
+                },
+                charts: {
+                    userGrowth: (userGrowth || []).map(i => ({ date: i.date, count: Number(i.count) })),
+                    blogGrowth: (blogGrowth || []).map(i => ({ date: i.date, count: Number(i.count) })),
+                    categoryStats: (categoryStats || []).map(i => ({ name: i.name, value: Number(i.count) })),
+                    topBlogs: (topBlogs || []).map(i => ({ title: (i.title || '').substring(0, 20) + '...', views: Number(i.views) })),
+                }
+            };
+        } catch (error) {
+            console.error("DEBUG - getSystemStats error:", error);
+            throw error;
+        }
     }
 
     /** Lấy tất cả blogs với filter + pagination */

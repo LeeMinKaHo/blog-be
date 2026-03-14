@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Foxtek Blog</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            padding: 40px 20px;
+            text-align: center;
+            color: white;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-text {
+            font-size: 18px;
+            color: #4b5563;
+            margin-bottom: 20px;
+        }
+        .name {
+            color: #6366f1;
+            font-weight: 700;
+        }
+        .features {
+            margin: 30px 0;
+            padding: 0;
+            list-style: none;
+        }
+        .feature-item {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .feature-icon {
+            background: #e0e7ff;
+            color: #6366f1;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 14px;
+        }
+        .cta-button {
+            display: inline-block;
+            padding: 14px 30px;
+            background: #6366f1;
+            color: white !important;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .footer {
+            background: #f9fafb;
+            padding: 30px;
+            text-align: center;
+            font-size: 14px;
+            color: #9ca3af;
+            border-top: 1px solid #e5e7eb;
+        }
+        .social-links {
+            margin-bottom: 20px;
+        }
+        .social-links a {
+            margin: 0 10px;
+            color: #9ca3af;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Chào mừng bạn đến với Foxtek! 🚀</h1>
+        </div>
+        <div class="content">
+            <p class="welcome-text">Xin chào <span class="name">{{name}}</span>,</p>
+            <p>Cảm ơn bạn đã gia nhập cộng đồng Foxtek Blog. Chúng mình rất vui mừng khi có bạn đồng hành trên hành trình chia sẻ kiến thức và kết nối đam mê công nghệ.</p>
+            
+            <h3>Bạn có thể làm gì tại Foxtek?</h3>
+            <ul class="features">
+                <li class="feature-item">
+                    <span class="feature-icon">✍️</span>
+                    <span>Viết và chia sẻ bài viết kỹ thuật chất lượng.</span>
+                </li>
+                <li class="feature-item">
+                    <span class="feature-icon">💬</span>
+                    <span>Thảo luận và nhận phản hồi từ cộng đồng.</span>
+                </li>
+                <li class="feature-item">
+                    <span class="feature-icon">🔥</span>
+                    <span>Cập nhật những xu thế công nghệ mới nhất.</span>
+                </li>
+            </ul>
+
+            <a href="{{url}}" class="cta-button">Khám phá ngay</a>
+            
+            <p style="margin-top: 30px; font-size: 14px; color: #6b7280;">
+                Nếu bạn có bất kỳ câu hỏi nào, đừng ngần ngại phản hồi lại email này. Đội ngũ hỗ trợ luôn sẵn sàng giúp đỡ bạn.
+            </p>
+        </div>
+        <div class="footer">
+            <div class="social-links">
+                <a href="#">Facebook</a> | <a href="#">GitHub</a> | <a href="#">LinkedIn</a>
+            </div>
+            <p>&copy; 2024 Foxtek Blog. Created with ❤️ by Foxtek Team.</p>
+            <p>TP. Hồ Chí Minh, Việt Nam</p>
+        </div>
+    </div>
+</body>
+</html>

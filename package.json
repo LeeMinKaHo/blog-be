@@ -24,8 +24,12 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@bull-board/api": "^6.20.5",
+    "@bull-board/express": "^6.20.5",
+    "@bull-board/nestjs": "^6.20.5",
     "@keyv/redis": "^5.1.4",
     "@nestjs-modules/mailer": "^2.0.2",
+    "@nestjs/bullmq": "^11.0.4",
     "@nestjs/cache-manager": "^3.0.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
@@ -40,6 +44,7 @@
     "@nestjs/websockets": "^11.1.16",
     "@types/nodemailer": "^7.0.11",
     "bcrypt": "^6.0.0",
+    "bullmq": "^5.71.0",
     "cache-manager": "^7.2.5",
     "cacheable": "^2.2.0",
     "class-transformer": "^0.5.1",

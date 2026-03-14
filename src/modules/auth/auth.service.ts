@@ -112,6 +112,12 @@ export class AuthService {
   /** Xác thực OTP do user nhập */
   async verifyEmail(email: string, code: string) {
     const user = await this.usersService.verifyCode(email, code);
+
+    // Gửi email chào mừng qua hàng đợi (Background Job)
+    this.mailService.queueWelcomeEmail(user.email, user.name).catch((err) => {
+      console.error('Lỗi khi đẩy mail Welcome vào hàng đợi:', err);
+    });
+
     return {
       message: 'Xác thực email thành công! Bạn có thể đăng nhập ngay bây giờ.',
       userId: user.id,
@@ -126,6 +132,11 @@ export class AuthService {
   async verifyEmailAndRefreshToken(email: string, code: string) {
     // 1. Verify OTP (throw nếu sai mã)
     const user = await this.usersService.verifyCode(email, code);
+
+    // Gửi email chào mừng qua hàng đợi (Background Job)
+    this.mailService.queueWelcomeEmail(user.email, user.name).catch((err) => {
+      console.error('Lỗi khi đẩy mail Welcome vào hàng đợi:', err);
+    });
 
     // 2. Tạo token mới — lần này isVerified = true
     const { accessToken, refreshToken } = await this.generateTokens(user);

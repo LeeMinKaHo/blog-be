@@ -33,7 +33,10 @@ import { VerifiedGuard } from './common/guards/verified.guard';
 import { AdminModule } from './modules/admin/admin.module';
 import { NotificationModule } from './modules/notifications/notification.module';
 import { Notification } from './modules/notifications/notification.entity';
-
+import { BullModule } from '@nestjs/bullmq';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { ExpressAdapter } from '@bull-board/express';
+import { BullBoardModule as BullBoardNestModule } from '@bull-board/nestjs';
 
 @Module({
   imports: [
@@ -72,7 +75,20 @@ import { Notification } from './modules/notifications/notification.entity';
       rootPath: join(__dirname, '..', 'uploads'),
       serveRoot: '/static',
     }),
-
+    BullModule.forRoot({
+      connection: {
+        host: 'localhost',
+        port: 6379,
+      },
+    }),
+    BullBoardNestModule.forRoot({
+      route: '/admin/queues',
+      adapter: ExpressAdapter,
+    }),
+    BullBoardNestModule.forFeature({
+      name: 'email-queue',
+      adapter: BullMQAdapter,
+    }),
     UsersModule,
     AuthModule,
     BlogModule,
