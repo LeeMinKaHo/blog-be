@@ -37,6 +37,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 import { BullBoardModule as BullBoardNestModule } from '@bull-board/nestjs';
+import { Follow } from './modules/users/entity/follow.entity';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { BullBoardModule as BullBoardNestModule } from '@bull-board/nestjs';
         Comment,
         CommentLike,
         Notification,
+        Follow,
       ],
       subscribers: [AuditSubscriber],
     }),

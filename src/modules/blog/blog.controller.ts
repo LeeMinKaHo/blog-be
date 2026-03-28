@@ -114,6 +114,12 @@ export class BlogsController {
     return this.blogsService.incrementViews(+id);
   }
 
+  @Public()
+  @Get('trending')
+  getTrending(@Query('limit') limit: number = 5) {
+    return this.blogsService.getTrending(+limit);
+  }
+
   @Get(':id')
   @Public()
   findOne(@Param('id') id: string) {

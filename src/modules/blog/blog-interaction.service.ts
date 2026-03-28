@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { CacheService } from '../cache/cache.service';
@@ -10,6 +10,7 @@ import { BlogLike } from './entity/blog-like.entity';
 import { NotificationService } from '../notifications/notification.service';
 import { NotificationGateway } from '../notifications/notification.gateway';
 import { NotificationType } from '../notifications/notification.entity';
+import Redis from 'ioredis';
 
 
 @Injectable()
@@ -23,6 +24,7 @@ export class BlogInteractionService {
         private readonly blogRepo: BlogRepository,
         private readonly notificationService: NotificationService,
         private readonly notificationGateway: NotificationGateway,
+        @Inject('REDIS_CLIENT') private readonly redis: Redis,
     ) { }
 
 
@@ -59,6 +61,17 @@ export class BlogInteractionService {
 
         // TTL 30 ngày
         await this.cacheService.set(key, list, 30 * 24 * 60 * 60);
+
+        // 🔥 Cập nhật Trending (tạm thời gộp chung logic với decrementViews nếu muốn, 
+        // hoặc coi việc "Seen" là một tín hiệu trending quan trọng hơn lướt nhanh)
+        const today = new Date().toISOString().split('T')[0];
+        const trendingKey = `blog:trending:${today}`;
+        try {
+            await this.redis.zincrby(trendingKey, 1, postId.toString());
+            await this.redis.expire(trendingKey, 86400 * 8);
+        } catch (err) {
+            console.error('⚠ Redis trending update in addSeenBlog failed:', err);
+        }
     }
 
     async getSeenBlog(userId: number, page: number = 1, limit: number = 10) {

@@ -4,9 +4,13 @@ import { DataSource, Repository } from 'typeorm';
 import { User } from './entity/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { hashPassword } from './user.helper';
-import { transactionDb } from 'src/db/transaction.db';
 import { UserAdvance } from './entity/user-advance.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { Follow } from './entity/follow.entity';
+import { NotificationService } from '../notifications/notification.service';
+import { NotificationGateway } from '../notifications/notification.gateway';
+import { NotificationType } from '../notifications/notification.entity';
+import { CacheService, CACHE_KEYS, CACHE_TTL } from '../cache/cache.service';
 
 @Injectable()
 export class UsersService {
@@ -16,6 +20,11 @@ export class UsersService {
     private usersRepository: Repository<User>,
     @InjectRepository(UserAdvance)
     private userAdvanceRepo: Repository<UserAdvance>,
+    @InjectRepository(Follow)
+    private followRepo: Repository<Follow>,
+    private readonly notificationService: NotificationService,
+    private readonly notificationGateway: NotificationGateway,
+    private readonly cacheService: CacheService,
   ) { }
   async create(dto: CreateUserDto): Promise<User> {
     return await this.dataSource.transaction(async (manager) => {
@@ -71,14 +80,25 @@ export class UsersService {
     Object.assign(userAdvance, rest);
     await this.userAdvanceRepo.save(userAdvance);
 
-    // Tải lại profile đầy đủ
+    // ❌ Invalidate toàn bộ cache liên quan đến user sau khi update
+    await this.cacheService.deleteByPattern(`keyv:user:${userId}:*`);
+
+    // Tải lại profile đầy đủ (sẽ set lại cache mới)
     return this.profile(userId);
   }
 
   async remove(uuid: string): Promise<void> {
     await this.usersRepository.update({ uuid }, { isActive: false });
   }
+
   async profile(userId: number): Promise<UserAdvance> {
+    const cacheKey = CACHE_KEYS.profile(userId);
+
+    // ✅ Cache Hit: trả về ngay từ Redis
+    const cached = await this.cacheService.get(cacheKey) as UserAdvance | undefined;
+    if (cached) return cached;
+
+    // ❌ Cache Miss: query DB
     const user = await this.userAdvanceRepo.findOne({
       where: { user: { id: userId } },
       relations: ['user'],
@@ -87,11 +107,22 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+
+    // Lưu vào cache với TTL 30m
+    await this.cacheService.set(cacheKey, user, CACHE_TTL.PROFILE);
+
     return user;
   }
 
   /** Thống kê hoạt động của user: số bài viết, lượt xem, bình luận, ngày tham gia */
   async getStats(userId: number) {
+    const cacheKey = CACHE_KEYS.stats(userId);
+
+    // ✅ Cache Hit
+    const cached = await this.cacheService.get(cacheKey) as Awaited<ReturnType<UsersService['getStats']>> | undefined;
+    if (cached) return cached;
+
+    // ❌ Cache Miss: tính toán từ DB
     const manager = this.usersRepository.manager;
 
     const [blogStats] = await manager.query(
@@ -105,14 +136,79 @@ export class UsersService {
       [userId]
     );
 
+    const followerCount = await this.followRepo.count({ where: { followingId: userId } });
+    const followingCount = await this.followRepo.count({ where: { followerId: userId } });
+
     const user = await this.usersRepository.findOneBy({ id: userId });
 
-    return {
+    const stats = {
       totalPosts: Number(blogStats?.totalPosts ?? 0),
       totalViews: Number(blogStats?.totalViews ?? 0),
       totalComments: Number(commentStats?.totalComments ?? 0),
+      followerCount,
+      followingCount,
       joinedAt: user?.createdAt ?? null,
     };
+
+    // Lưu vào cache với TTL 10m
+    await this.cacheService.set(cacheKey, stats, CACHE_TTL.STATS);
+
+    return stats;
+  }
+
+  async toggleFollow(followerId: number, followingId: number) {
+    if (followerId === followingId) {
+      throw new BadRequestException('Bạn không thể follow chính mình');
+    }
+
+    const followingUser = await this.usersRepository.findOneBy({ id: followingId });
+    if (!followingUser) throw new NotFoundException('Người dùng không tồn tại');
+
+    const exist = await this.followRepo.findOneBy({ followerId, followingId });
+
+    if (exist) {
+      await this.followRepo.remove(exist);
+      return { followed: false, message: 'Đã bỏ theo dõi' };
+    }
+
+    const follow = this.followRepo.create({ followerId, followingId });
+    await this.followRepo.save(follow);
+
+    // Gửi thông báo
+    const notification = await this.notificationService.createNotification({
+      recipientId: followingId,
+      senderId: followerId,
+      type: NotificationType.FOLLOW,
+      targetId: followerId, // ID của người follow
+      content: `đã bắt đầu theo dõi bạn`,
+    });
+
+    if (notification) {
+      this.notificationGateway.sendNotificationToUser(followingId, notification);
+    }
+
+    return { followed: true, message: 'Đã theo dõi' };
+  }
+
+  async getFollowers(userId: number) {
+    return this.followRepo.find({
+      where: { followingId: userId },
+      relations: ['follower'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async getFollowing(userId: number) {
+    return this.followRepo.find({
+      where: { followerId: userId },
+      relations: ['following'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async isFollowing(followerId: number, followingId: number): Promise<boolean> {
+    const exist = await this.followRepo.findOneBy({ followerId, followingId });
+    return !!exist;
   }
 
   /** Lưu mã OTP và thời gian hết hạn vào DB */

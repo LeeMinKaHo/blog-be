@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
@@ -13,6 +13,7 @@ import { PaginationQueryDto } from 'src/common/helper/pagination/pagination.dto'
 import { Category } from './entity/category.entity';
 import { BlogRepository } from './blog.repository';
 import { User } from '../users/entity/user.entity';
+import Redis from 'ioredis';
 
 
 @Injectable()
@@ -25,6 +26,7 @@ export class BlogsService {
     private categoryRepo: Repository<Category>,
     @InjectRepository(Tag)
     private tagRepo: Repository<Tag>,
+    @Inject('REDIS_CLIENT') private readonly redis: Redis,
   ) { }
 
   private extractTags(description: string): string[] {
@@ -295,7 +297,84 @@ export class BlogsService {
         await this.cacheService.set(`blog_${id}`, blog, 3600);
       } catch { }
 
+      // 4️⃣ Ghi nhận lượt xem vào Redis cho Trending (theo ngày)
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const trendingKey = `blog:trending:${today}`;
+      try {
+        await this.redis.zincrby(trendingKey, 1, id.toString());
+        await this.redis.expire(trendingKey, 86400 * 8); // Giữ trong 8 ngày để tính trending tuần
+      } catch (err) {
+        console.error('⚠ Redis trending update failed:', err);
+      }
+
       return { views: blog.views };
     });
+  }
+
+  async getTrending(limit = 5): Promise<Blog[]> {
+    const last7Days: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateString = date.toISOString().split('T')[0];
+      last7Days.push(`blog:trending:${dateString}`);
+    }
+
+    const tempWeeklyKey = `blog:trending:weekly_temp:${Date.now()}`;
+
+    try {
+      // Gộp 7 ngày gần nhất thành 1 tập hợp duy nhất
+      // @ts-ignore
+      await this.redis.zunionstore(tempWeeklyKey, last7Days.length, ...last7Days);
+
+      // Lấy top bài viết từ key tạm
+      const topIds = await this.redis.zrevrange(tempWeeklyKey, 0, limit - 1);
+
+      // Xóa key tạm ngay sau khi lấy ID
+      await this.redis.del(tempWeeklyKey);
+
+      if (topIds.length === 0) {
+        return this.getFallbackTrending(limit);
+      }
+
+      // Query database để lấy thông tin chi tiết các bài viết này
+      const blogs = await this.blogRepo.repo
+        .createQueryBuilder('blog')
+        .leftJoinAndSelect('blog.category', 'category')
+        .leftJoinAndSelect('blog.createdBy', 'createdBy')
+        .where('blog.id IN (:...ids)', { ids: topIds.map(id => parseInt(id)) })
+        .andWhere('blog.status = :status', { status: BlogStatus.PUSHLISH })
+        .getMany();
+
+      // Sắp xếp lại danh sách blog cho đúng thứ tự trending từ Redis trả về
+      return topIds
+        .map(id => blogs.find(b => b.id === parseInt(id)))
+        .filter((b): b is Blog => !!b);
+    } catch (err) {
+      console.error('⚠ Get trending failed:', err);
+      return this.getFallbackTrending(limit);
+    }
+  }
+
+  private async getFallbackTrending(limit: number): Promise<Blog[]> {
+    // Fallback 1: Lấy bài viết có view cao nhất toàn thời gian (từ DB)
+    const fallbackBlogs = await this.blogRepo.repo.find({
+      where: { status: BlogStatus.PUSHLISH },
+      order: { views: 'DESC' },
+      take: limit,
+      relations: ['category', 'createdBy'],
+    });
+
+    // Fallback 2: Nếu DB cũng chưa có bài có view, lấy những bài mới nhất
+    if (fallbackBlogs.length === 0) {
+      return this.blogRepo.repo.find({
+        where: { status: BlogStatus.PUSHLISH },
+        order: { createdAt: 'DESC' },
+        take: limit,
+        relations: ['category', 'createdBy'],
+      });
+    }
+
+    return fallbackBlogs;
   }
 }

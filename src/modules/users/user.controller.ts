@@ -56,6 +56,28 @@ export class UsersController {
     return this.usersService.findOneByUuid(uuid);
   }
 
+  @Post(':id/follow')
+  toggleFollow(@CurrentUser('sub') followerId: number, @Param('id') followingId: number) {
+    return this.usersService.toggleFollow(followerId, +followingId);
+  }
+
+  @Public()
+  @Get(':id/followers')
+  getFollowers(@Param('id') userId: number) {
+    return this.usersService.getFollowers(+userId);
+  }
+
+  @Public()
+  @Get(':id/following')
+  getFollowing(@Param('id') userId: number) {
+    return this.usersService.getFollowing(+userId);
+  }
+
+  @Get(':id/is-following')
+  isFollowing(@CurrentUser('sub') followerId: number, @Param('id') followingId: number) {
+    return this.usersService.isFollowing(followerId, +followingId);
+  }
+
   // DELETE /users/:uuid
   @Delete(':uuid')
   @Roles(UserRole.USER)
