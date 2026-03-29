@@ -3,6 +3,19 @@ import { MailerService } from '@nestjs-modules/mailer';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 
+export interface NewPostJobData {
+    to: string;
+    recipientName: string;
+    authorName: string;
+    authorInitial: string;
+    title: string;
+    description: string;
+    thumbnail?: string;
+    category?: string;
+    postUrl: string;
+    siteUrl: string;
+}
+
 @Injectable()
 export class MailService {
     private readonly logger = new Logger(MailService.name);
@@ -20,7 +33,7 @@ export class MailService {
         await this.emailQueue.add('send-welcome', {
             to,
             name,
-            url: 'https://foxtek.blog', // Thay bằng link thực tế của bạn
+            url: 'https://foxtek.blog',
         });
         this.logger.log(`📥 Đã thêm email welcome cho ${to} vào hàng đợi`);
     }
@@ -66,4 +79,37 @@ export class MailService {
             throw error;
         }
     }
+
+    /**
+     * Đẩy job thông báo bài viết mới vào hàng đợi cho TẤT CẢ followers.
+     * Mỗi follower là 1 job riêng để xử lý song song, không block API.
+     */
+    async queueNewPostNotification(followers: NewPostJobData[]): Promise<void> {
+        const jobs = followers.map((data) => ({
+            name: 'send-new-post-notification',
+            data,
+        }));
+
+        await this.emailQueue.addBulk(jobs);
+        this.logger.log(`📥 Đã thêm ${jobs.length} email thông báo bài viết mới vào hàng đợi`);
+    }
+
+    /**
+     * Thực sự gửi email thông báo bài viết mới (được gọi bởi BullMQ Worker)
+     */
+    async sendNewPostEmail(data: NewPostJobData): Promise<void> {
+        try {
+            await this.mailerService.sendMail({
+                to: data.to,
+                subject: `📰 ${data.authorName} vừa đăng bài: "${data.title}"`,
+                template: 'new-post',
+                context: data,
+            });
+            this.logger.log(`✅ Đã gửi email bài mới đến ${data.to}`);
+        } catch (error) {
+            this.logger.error(`❌ Gửi email bài mới thất bại đến ${data.to}:`, error);
+            throw error; // re-throw để BullMQ retry
+        }
+    }
 }
+

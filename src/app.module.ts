@@ -38,6 +38,7 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 import { BullBoardModule as BullBoardNestModule } from '@bull-board/nestjs';
 import { Follow } from './modules/users/entity/follow.entity';
+import { RedisModule } from './modules/redis/redis.module';
 
 @Module({
   imports: [
@@ -51,12 +52,15 @@ import { Follow } from './modules/users/entity/follow.entity';
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: '60s' },
+      signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN ?? '15m') as any },
     }),
     TypeOrmModule.forRoot({
       ...AppDataSource,
       type: 'mysql',
-      synchronize: true,
+      // ⚠️ synchronize: false trên production — dùng migration để thay đổi schema
+      synchronize: process.env.NODE_ENV !== 'production',
+      migrationsRun: process.env.NODE_ENV === 'production',
+      logging: process.env.NODE_ENV !== 'production',
       entities: [
         User,
         UserAdvance,
@@ -77,11 +81,15 @@ import { Follow } from './modules/users/entity/follow.entity';
       rootPath: join(__dirname, '..', 'uploads'),
       serveRoot: '/static',
     }),
-    BullModule.forRoot({
-      connection: {
-        host: 'localhost',
-        port: 6379,
-      },
+    RedisModule,
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          host: config.get<string>('REDIS_HOST', 'localhost'),
+          port: config.get<number>('REDIS_PORT', 6379),
+        },
+      }),
     }),
     BullBoardNestModule.forRoot({
       route: '/admin/queues',

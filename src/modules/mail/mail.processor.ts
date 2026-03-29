@@ -15,8 +15,12 @@ export class EmailProcessor extends WorkerHost {
                 await this.mailService.sendWelcomeEmail(to, name, url);
                 break;
             }
+            case 'send-new-post-notification': {
+                await this.mailService.sendNewPostEmail(job.data);
+                break;
+            }
             default:
                 console.log(`Unknown job name: ${job.name}`);
         }
     }
-}
+}

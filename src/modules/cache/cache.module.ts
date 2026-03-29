@@ -1,32 +1,32 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Cacheable } from 'cacheable';
 import { createKeyv } from '@keyv/redis';
 import { CacheService } from './cache.service';
-import Redis from 'ioredis';
 
+/**
+ * CacheModule — Quản lý caching với Cacheable + Redis
+ *
+ * - CACHE_INSTANCE: Dùng `cacheable` lib (hỗ trợ in-memory + Redis tiered cache)
+ * - REDIS_CLIENT:   Dùng lại từ RedisModule (@Global) — không tạo kết nối mới!
+ */
 @Module({
   providers: [
     {
       provide: 'CACHE_INSTANCE',
-      useFactory: () => {
-        // If no namespace is set, the default is 'keyv', and keys are prefixed with 'keyv:'.
-        const secondary = createKeyv('redis://localhost:6379', {
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const host = config.get<string>('REDIS_HOST', 'localhost');
+        const port = config.get<number>('REDIS_PORT', 6379);
+        const secondary = createKeyv(`redis://${host}:${port}`, {
           namespace: 'keyv',
         });
         return new Cacheable({ secondary, ttl: '4h' });
       },
     },
-    {
-      provide: 'REDIS_CLIENT',
-      useFactory: () => {
-        return new Redis({
-          host: 'localhost',
-          port: 6379,
-        });
-      },
-    },
-    CacheService
+    CacheService,
   ],
-  exports: ['CACHE_INSTANCE', 'REDIS_CLIENT', CacheService],
+  // Không export 'REDIS_CLIENT' ở đây nữa — nó đã được export từ RedisModule (@Global)
+  exports: ['CACHE_INSTANCE', CacheService],
 })
 export class CacheModule {}

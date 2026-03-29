@@ -127,7 +127,7 @@ export class AdminService {
 
         const qb = this.blogRepo
             .createQueryBuilder('blog')
-            .leftJoinAndSelect('blog.createdBy', 'author')
+            .leftJoinAndSelect('blog.author', 'author')
             .leftJoinAndSelect('blog.category', 'category')
             .where('blog.status != :del', { del: BlogStatus.DELETE })
             .orderBy('blog.createdAt', 'DESC')
@@ -157,7 +157,7 @@ export class AdminService {
     async getBlogById(id: number) {
         const blog = await this.blogRepo.findOne({
             where: { id },
-            relations: ['createdBy', 'category'],
+            relations: ['author', 'category'],
         });
         if (!blog) throw new NotFoundException('Blog not found');
         return blog;

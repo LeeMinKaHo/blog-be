@@ -12,18 +12,24 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.use(cookieParser());
-  const config = new DocumentBuilder()
-    .setTitle('My API')
-    .setDescription('API documentation')
-    .setVersion('1.0')
-    .addBearerAuth() // nếu có JWT thì bật cái này
-    .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  // ── Swagger: chỉ bật trên môi trường development ─────────────────────────
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('Blog API')
+      .setDescription('API documentation')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
 
-  SwaggerModule.setup('api', app, document);
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document);
+    console.log(`📄 Swagger: http://localhost:${process.env.PORT ?? 3000}/api`);
+  }
+
+  // ── CORS: đọc từ biến môi trường, không hardcode localhost ───────────────
   app.enableCors({
-    origin: 'http://localhost:3001',
+    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
     credentials: true,
   });
   app.useGlobalInterceptors(new ResponseInterceptor());

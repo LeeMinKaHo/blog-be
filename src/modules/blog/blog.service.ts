@@ -1,4 +1,4 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
@@ -14,10 +14,17 @@ import { Category } from './entity/category.entity';
 import { BlogRepository } from './blog.repository';
 import { User } from '../users/entity/user.entity';
 import Redis from 'ioredis';
+import { MailService } from '../mail/mail.service';
+import { NotificationService } from '../notifications/notification.service';
+import { NotificationGateway } from '../notifications/notification.gateway';
+import { NotificationType } from '../notifications/notification.entity';
+import { Follow } from '../users/entity/follow.entity';
 
 
 @Injectable()
 export class BlogsService {
+  private readonly logger = new Logger(BlogsService.name);
+
   constructor(
     private cacheService: CacheService,
     private dataSource: DataSource,
@@ -26,7 +33,12 @@ export class BlogsService {
     private categoryRepo: Repository<Category>,
     @InjectRepository(Tag)
     private tagRepo: Repository<Tag>,
+    @InjectRepository(Follow)
+    private followRepo: Repository<Follow>,
     @Inject('REDIS_CLIENT') private readonly redis: Redis,
+    private readonly mailService: MailService,
+    private readonly notificationService: NotificationService,
+    private readonly notificationGateway: NotificationGateway,
   ) { }
 
   private extractTags(description: string): string[] {
@@ -151,11 +163,85 @@ export class BlogsService {
       await this.cacheService.set(`blog_${blog.id}`, blog, 3600);
     } catch (err) {
       console.error('⚠ Cache failed:', err);
-      // KHÔNG throw lỗi, không làm ảnh hưởng flow
     }
 
-    // 3) Trả về blog bình thường
+    // 3) Nếu bài được publish → gửi thông báo cho followers (fire-and-forget)
+    if (blog.status === BlogStatus.PUSHLISH) {
+      this.notifyFollowers(authorId, blog, isCategory.name).catch((err) =>
+        this.logger.error('⚠ notifyFollowers failed:', err),
+      );
+    }
+
+    // 4) Trả về blog bình thường
     return blog;
+  }
+
+  /**
+   * Gửi in-app notification (WebSocket) + email queue cho tất cả followers.
+   * Chạy hoàn toàn bất đồng bộ, không block API response.
+   */
+  private async notifyFollowers(authorId: number, blog: Blog, categoryName: string) {
+    // Lấy danh sách tất cả followers của tác giả (kèm thông tin user)
+    const follows = await this.followRepo.find({
+      where: { followingId: authorId },
+      relations: ['follower'],
+    });
+
+    if (follows.length === 0) return;
+
+    // Lấy thông tin tác giả
+    const author = await this.dataSource
+      .getRepository(User)
+      .findOneBy({ id: authorId });
+
+    if (!author) return;
+
+    const authorName = author.name || author.email;
+    const authorInitial = (authorName[0] || 'U').toUpperCase();
+    const siteUrl = process.env.SITE_URL ?? 'http://localhost:3000';
+    const postUrl = `${siteUrl}/blog/${blog.id}`;
+
+    const emailJobs: Parameters<MailService['queueNewPostNotification']>[0] = [];
+
+    for (const follow of follows) {
+      const follower = follow.follower;
+      if (!follower?.email) continue;
+
+      // 1️⃣ In-app notification qua WebSocket (realtime)
+      const notification = await this.notificationService.createNotification({
+        recipientId: follower.id,
+        senderId: authorId,
+        type: NotificationType.NEW_POST,
+        targetId: blog.id,
+        content: `vừa đăng bài viết mới: "${blog.title}"`,
+      });
+
+      if (notification) {
+        this.notificationGateway.sendNotificationToUser(follower.id, notification);
+      }
+
+      // 2️⃣ Chuẩn bị dữ liệu email job
+      emailJobs.push({
+        to: follower.email,
+        recipientName: follower.name || follower.email,
+        authorName,
+        authorInitial,
+        title: blog.title,
+        description: blog.description ?? '',
+        thumbnail: blog.thumbnail ?? undefined,
+        category: categoryName,
+        postUrl,
+        siteUrl,
+      });
+    }
+
+    // 3️⃣ Đẳy tất cả email vào queue 1 lần (bulk) - không block
+    if (emailJobs.length > 0) {
+      await this.mailService.queueNewPostNotification(emailJobs);
+      this.logger.log(
+        `📨 Đã queue ${emailJobs.length} email thông báo bài mới cho blog #${blog.id}`,
+      );
+    }
   }
   async findAll(search?: string, categoryId?: number, pagination?: PaginationQueryDto) {
     const { page = 1, limit = 10 } = pagination ?? {};
@@ -163,8 +249,7 @@ export class BlogsService {
     const query = this.blogRepo.repo
       .createQueryBuilder('blog')
       .leftJoinAndSelect('blog.category', 'category')
-      .leftJoinAndSelect('blog.createdBy', 'createdBy')
-      .leftJoinAndSelect('blog.updatedBy', 'updatedBy')
+      .leftJoinAndSelect('blog.author', 'author')
       .where('blog.status = :status', { status: BlogStatus.PUSHLISH });
 
     if (search) {
@@ -188,6 +273,7 @@ export class BlogsService {
     const query = this.blogRepo.repo
       .createQueryBuilder('blog')
       .leftJoinAndSelect('blog.category', 'category')
+      .leftJoinAndSelect('blog.author', 'author')
       .where('blog.authorId = :authorId', { authorId })
       .andWhere('blog.status != :deleted', { deleted: BlogStatus.DELETE })
       .orderBy('blog.createdAt', 'DESC');
@@ -210,7 +296,7 @@ export class BlogsService {
       blog = cached as Blog;
     } else {
       // 2️⃣ Nếu không có cache → query DB
-      blog = await this.blogRepo.findOne(id, { category: true });
+      blog = await this.blogRepo.findOne(id, { category: true, author: true });
 
       // 3️⃣ Cache kết quả (không block nếu cache fail)
       if (blog) {
@@ -341,7 +427,7 @@ export class BlogsService {
       const blogs = await this.blogRepo.repo
         .createQueryBuilder('blog')
         .leftJoinAndSelect('blog.category', 'category')
-        .leftJoinAndSelect('blog.createdBy', 'createdBy')
+        .leftJoinAndSelect('blog.author', 'author')
         .where('blog.id IN (:...ids)', { ids: topIds.map(id => parseInt(id)) })
         .andWhere('blog.status = :status', { status: BlogStatus.PUSHLISH })
         .getMany();
@@ -362,7 +448,7 @@ export class BlogsService {
       where: { status: BlogStatus.PUSHLISH },
       order: { views: 'DESC' },
       take: limit,
-      relations: ['category', 'createdBy'],
+      relations: ['category', 'author'],
     });
 
     // Fallback 2: Nếu DB cũng chưa có bài có view, lấy những bài mới nhất
@@ -371,7 +457,7 @@ export class BlogsService {
         where: { status: BlogStatus.PUSHLISH },
         order: { createdAt: 'DESC' },
         take: limit,
-        relations: ['category', 'createdBy'],
+        relations: ['category', 'author'],
       });
     }
 

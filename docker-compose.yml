@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # 1. Database (MySQL 8)
+  db:
+    image: mysql:8
+    container_name: blog-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root-password-here
+      MYSQL_DATABASE: my_database
+      MYSQL_USER: my-mysql
+      MYSQL_PASSWORD: LeKhoa@123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  # 2. Redis (Dành cho BullMQ/Cache)
+  redis:
+    image: redis:alpine
+    container_name: blog-redis
+    ports:
+      - "6379:6379"
+
+  # 3. Backend (NestJS)
+  backend:
+    build: .
+    container_name: blog-backend
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+      - redis
+    # Docker sẽ truyền đè các biến này nếu có trong container
+    environment:
+      - NODE_ENV=production
+      - DATABASE_HOST=db
+      - DATABASE_PORT=3306
+      - DATABASE_USER=my-mysql
+      - DATABASE_PASSWORD=LeKhoa@123
+      - DATABASE_NAME=my_database
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=your_jwt_secret_key
+      - JWT_EXPIRES_IN=15m
+      - FRONTEND_URL=http://localhost:3001
+    volumes:
+      - ./uploads:/usr/src/app/uploads
+
+  # 4. Frontend (Next.js)
+  frontend:
+    # Build từ thư mục FE (sử dụng relative path tương ứng trên máy thật)
+    build: ../../nextjs/blog_fe
+    container_name: blog-frontend
+    restart: always
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+
+volumes:
+  mysql_data:

@@ -28,6 +28,19 @@ export class UsersController {
   getStats(@CurrentUser('sub') userId: number) {
     return this.usersService.getStats(userId);
   }
+
+  @Public()
+  @Get(':id/profile')
+  getPublicProfile(@Param('id') userId: number) {
+    return this.usersService.profile(+userId);
+  }
+
+  @Public()
+  @Get(':id/stats')
+  getPublicStats(@Param('id') userId: number) {
+    return this.usersService.getStats(+userId);
+  }
+
   @Put()
   update(
     @CurrentUser('sub') userId: number,

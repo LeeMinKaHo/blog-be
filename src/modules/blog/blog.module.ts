@@ -12,10 +12,15 @@ import { SavePost } from './entity/save-post.entity';
 import { BlogRepository } from './blog.repository';
 import { BlogInteractionService } from './blog-interaction.service';
 import { BlogLike } from './entity/blog-like.entity';
+import { MailModule } from '../mail/mail.module';
+import { Follow } from '../users/entity/follow.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Blog, Category, Tag, SavePost, BlogLike]), CacheModule],
-
+  imports: [
+    TypeOrmModule.forFeature([Blog, Category, Tag, SavePost, BlogLike, Follow]),
+    CacheModule,
+    MailModule,
+  ],
   providers: [BlogsService, BlogRepository, BlogInteractionService],
   controllers: [BlogsController],
 })
