@@ -3,13 +3,21 @@ import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { join } from 'path';
+import { HttpLoggingInterceptor } from './common/interceptors/http-logging.interceptor';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { AppException } from './common/exceptions/app.exception';
 import { ErrorCode } from './common/errors/error-code.enum';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    // Tắt logger mặc định của NestJS, sẽ dùng Winston thay thế
+    bufferLogs: true,
+  });
+
+  // ── Dùng Winston làm NestJS Logger mặc định ───────────────────────────────
+  app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 
   app.use(cookieParser());
 
@@ -24,16 +32,23 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api', app, document);
-    console.log(`📄 Swagger: http://localhost:${process.env.PORT ?? 3000}/api`);
   }
 
-  // ── CORS: đọc từ biến môi trường, không hardcode localhost ───────────────
+  // ── CORS ─────────────────────────────────────────────────────────────────
   app.enableCors({
     origin: process.env.FRONTEND_URL || 'http://localhost:3001',
     credentials: true,
   });
-  app.useGlobalInterceptors(new ResponseInterceptor());
-  app.useGlobalFilters(new GlobalExceptionFilter());
+
+  // ── Global Exception Filter (dùng Winston, phải lấy từ DI) ───────────────
+  app.useGlobalFilters(app.get(GlobalExceptionFilter));
+
+  // ── Interceptors ──────────────────────────────────────────────────────────
+  app.useGlobalInterceptors(
+    app.get(HttpLoggingInterceptor),
+    new ResponseInterceptor(),
+  );
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -56,6 +71,7 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen(process.env.PORT ?? 3000);
+  const port = process.env.PORT ?? 3000;
+  await app.listen(port);
 }
 bootstrap();

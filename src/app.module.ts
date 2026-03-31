@@ -29,6 +29,9 @@ import { ClsModule } from 'nestjs-cls';
 import { UserContextService } from './common/services/user-context.service';
 import { AuditSubscriber } from './common/subscribers/audit.subscriber';
 import { VerifiedGuard } from './common/guards/verified.guard';
+import { LoggerModule } from './common/logger/logger.module';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { HttpLoggingInterceptor } from './common/interceptors/http-logging.interceptor';
 
 import { AdminModule } from './modules/admin/admin.module';
 import { NotificationModule } from './modules/notifications/notification.module';
@@ -43,6 +46,7 @@ import { RedisModule } from './modules/redis/redis.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    LoggerModule,
     ClsModule.forRoot({
       global: true,
       middleware: { mount: true },
@@ -110,6 +114,9 @@ import { RedisModule } from './modules/redis/redis.module';
   providers: [
     UserContextService,
     AuditSubscriber,
+    // Đăng ký vào DI để main.ts dùng app.get() lấy ra
+    GlobalExceptionFilter,
+    HttpLoggingInterceptor,
     {
       provide: APP_GUARD,
       useClass: AuthGuard,

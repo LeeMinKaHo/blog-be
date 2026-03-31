@@ -5,112 +5,115 @@
 [circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
 [circleci-url]: https://circleci.com/gh/nestjs/nest
 
-# Foxtek Blog Backend (NestJS)
+# 🚀 Foxtek Blog Backend (NestJS)
 
-Dự án Backend nền tảng cho hệ thống **Foxtek Blog**, được xây dựng mạnh mẽ và linh hoạt bằng **NestJS**. Nó cung cấp RESTful API hiệu suất cao và chuẩn hóa, xử lý dữ liệu cho frontend.
+Dự án Backend cho hệ thống **Foxtek Blog**, được xây dựng mạnh mẽ với **NestJS 11**. Hệ thống cung cấp RESTful API hiệu suất cao, tích hợp Real-time notifications và Queue processing.
 
-## 🚀 Công nghệ sử dụng
+---
 
-- **Framework:** [NestJS](https://nestjs.com/) (Express under the hood)
+## 🛠️ Công nghệ sử dụng
+
+### Core Stack
+- **Framework:** [NestJS 11](https://nestjs.com/)
 - **Ngôn ngữ:** TypeScript
-- **Database:** PostgreSQL kết nối qua [TypeORM](https://typeorm.io/)
-- **Caching:** Redis (`cache-manager`, `@nestjs/cache-manager`)
-- **Authentication:** JWT (`@nestjs/jwt`), HttpOnly Cookies
-- **Quản lý giới hạn truy cập:** `@nestjs/throttler`
-- **Validation:** `class-validator`, `class-transformer`
+- **Database:** MySQL 8 tích hợp qua [TypeORM](https://typeorm.io/)
+- **Caching & Queue:** Redis (`cache-manager`, `BullMQ`)
+- **Real-time:** [Socket.io](https://socket.io/)
+
+### Ecosystem & Tools
+- **Authentication:** JWT, HttpOnly Cookies, Bcrypt
+- **Background Jobs:** `@nestjs/bullmq` & [BullBoard](https://github.com/felixmosh/bull-board) (Monitoring UI)
+- **Communications:** `@nestjs-modules/mailer` (Nodemailer, Handlebars templates)
+- **Bảo mật:** `@nestjs/throttler` (Rate limiting), `cookie-parser`
 - **Tài liệu API:** Swagger (`@nestjs/swagger`)
+- **Validation:** `class-validator`, `class-transformer`
+
+---
 
 ## ✨ Tính năng chính
 
-- **User Authentication:**
-  - Login / Register an toàn (Bcrypt hash).
-  - Xác thực qua JWT sử dụng HttpOnly Cookies (chống XSS) kết hợp cùng Refresh Token (tuỳ chọn cấu hình).
-  - Tích hợp Middleware tự động lấy thông tin CurrentUser qua custom decorator `@CurrentUser()`.
-  
-- **Blog Management:**
-  - CRUD bài viết (Blogs), quản lý Danh mục (Categories).
-  - Filter bài viết, search full-text cơ bản, phân trang (Pagination).
-  - Tracking lượt xem và bài viết Trending sử dụng **Redis** cache.
-  
-- **Tương tác & Quản lý:**
-  - Bình luận (Comments) và lồng ghép (Nested Comments).
-  - Yêu thích / Lưu bài báo (`Seen`, `Saved`).
-  - Ghi nhận Audit Log (CreatedBy, UpdatedBy) tự động bằng TypeORM Subscribers.
-  
-- **Bảo mật & Tối ưu:**
-  - Rate Limiting để chống Spam API (Throttler).
-  - Cấu hình Global Pipes, Filters và Interceptors để đồng bộ hóa Response/Error.
+### 🔐 Authentication & Authorization
+- Đăng ký/Đăng nhập an toàn với mã hóa Bcrypt.
+- Xác thực Stateless qua JWT lưu tại HttpOnly Cookies.
+- Quản lý Profile, Avatar và phân quyền người dùng.
 
-## 📂 Kiến trúc Module hiện tại
+### 📝 Blog Management
+- CRUD bài viết, quản lý Danh mục (Categories).
+- Tìm kiếm Full-text, lọc bài viết theo tags/categories, phân trang.
+- Tracking bài viết Trending và lượt xem thời gian thực qua Redis.
 
-- `AuthModule`: Đăng nhập, đăng ký và bảo mật.
-- `UsersModule`: Quản trị User profiles, User roles.
-- `BlogModule`: Quản lý Blogs, Categories, Trending.
-- `CommentModule`: Quản lý comment, like comment.
-- `CacheModule`: Dịch vụ Caching.
-- ...
+### 👥 Social Features
+- **Hệ thống Follow:** Người dùng có thể theo dõi lẫn nhau.
+- **Tương tác:** Bình luận (Nested comments), Like, Save bài viết.
+- **Profile công khai:** Xem thông tin và bài viết của các tác giả khác.
 
-## 💻 Hướng dẫn chạy dự án
+### 🔔 Notifications & Real-time
+- Thông báo thời gian thực qua **Socket.io** khi có người follow, comment hoặc bài viết mới.
+- Xử lý gửi Email thông báo (OTP, Welcome) qua hàng đợi **BullMQ** để đảm bảo hiệu suất.
 
-### 1. Yêu cầu cài đặt
-- **Node.js** (Phiên bản v18+)
-- **PostgreSQL** Database.
-- **Redis Server** (để xử lý Cache/Throttler).
-- `pnpm` hoặc `npm`.
+### ⚙️ System Excellence
+- **Global Interceptors:** Chuẩn hóa định dạng Response trả về.
+- **Global Filters:** Xử lý lỗi toàn cục chuyên nghiệp.
+- **Audit Logs:** Tự động ghi nhận người tạo/cập nhật dữ liệu.
+- **Monitoring:** Dashboard BullBoard để theo dõi trạng thái background jobs.
 
-### 2. Cài đặt Dependencies
+---
+
+## 📂 Cấu trúc Module
+
+- `AuthModule`: Quản lý định danh và bảo mật.
+- `UsersModule`: Quản trị người dùng & Following system.
+- `BlogModule`: Quản lý nội dung bài viết.
+- `CommentModule`: Hệ thống thảo luận & tương tác.
+- `NotificationsModule`: Xử lý Socket.io và logic thông báo.
+- `MailModule`: Xử lý template và gửi mail qua queue.
+- `CommonModule`: Chứa các utilities, decorators, interceptors dùng chung.
+
+---
+
+## 💻 Hướng dẫn cài đặt
+
+### 1. Yêu cầu hệ thống
+- **Node.js** (v20+ recommended)
+- **MySQL 8**
+- **Redis**
+- **pnpm** (preferred) hoặc `npm`
+
+### 2. Cài đặt & Chạy local
 
 ```bash
+# Clone và cài đặt
 cd blog_be
 npm install
-```
 
-### 3. Cấu hình Biến Môi trường (.env)
-
-Tạo file `.env` ở thư mục gốc (tham khảo `.env.example` nếu có):
-
-```env
-# Database PostgreSQL
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=yourpassword
-DB_NAME=blog_db
-
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
-# JWT
-JWT_SECRET=super_secret_key_change_me
-JWT_EXPIRATION=1d
-```
-
-### 4. Chạy môi trường Development
-
-Dự án sẽ tự động đồng bộ (synchronize) schema TypeORM khi mode = dev:
-
-```bash
-# Xem log & auto reload
+# Tạo file .env từ .env.example (nếu có) hoặc cấu hình theo yêu cầu
+# Chạy ở chế độ phát triển
 npm run start:dev
 ```
 
-- **API Base:** `http://localhost:3000`
-- **Swagger Docs:** `http://localhost:3000/api` (Tài liệu API tự dộng)
-
-### 5. Production Build
+### 3. Docker (Khuyên dùng)
+Dự án đã được container hóa hoàn toàn, chỉ cần một lệnh duy nhất:
 
 ```bash
-npm run build
-npm run start:prod
+docker-compose up --build
 ```
-
-## 📝 Quy ước code cơ bản
-
-- Các tính năng mới phải được tổ chức theo cấu trúc `Modules`.
-- Sử dụng Custom Decorators (`@Public()`, `@CurrentUser()`) cho các endpoint.
-- Pagination và Sort cần trả về định dạng Pagination chuẩn trong Global Interceptors.
-- Phải thiết lập Validator DTO (Data Transfer Object) cho mọi request dùng `@Body`.
+*Lệnh này sẽ khởi tạo đồng thời: MySQL, Redis, Backend và Frontend.*
 
 ---
-*Backend mạnh mẽ cho trải nghiệm Foxtek Blog mượt mà!*
+
+## 📖 Tài liệu & Monitoring
+
+- **Swagger UI:** `http://localhost:3000/api`
+- **BullBoard UI:** `http://localhost:3000/admin/queues` (Theo dõi hàng đợi)
+
+---
+
+## 📜 Quy ước phát triển
+
+- Sử dụng **DTO** cho mọi dữ liệu input.
+- Áp dụng **Custom Decorators** (`@CurrentUser`, `@Public`) để code tường minh.
+- Mọi logic background job phải được đẩy vào `BullMQ`.
+
+---
+*Backend engine powering the Foxtek Community.*
+

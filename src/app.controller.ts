@@ -1,12 +1,19 @@
 import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Public } from './common/decorators/public.decorator';
 
+@ApiTags('System')
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
-
+  @Public()
   @Get()
-  getHello(): string {
-    return this.appService.getHello();
+  @ApiOperation({ summary: 'API Health Check' })
+  @ApiResponse({ status: 200, description: 'API is alive and kicking' })
+  getHello() {
+    return {
+      status: 'success',
+      message: 'Foxtek Blog API is running',
+      timestamp: new Date().toISOString(),
+    };
   }
 }

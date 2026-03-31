@@ -61,6 +61,7 @@ services:
       - backend
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - API_URL=http://blog-backend:3000
 
 volumes:
   mysql_data:
