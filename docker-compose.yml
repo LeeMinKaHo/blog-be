@@ -1,4 +1,4 @@
-version: '3.8'
+# docker-compose.yml
 
 services:
   # 1. Database (MySQL 8)
@@ -7,10 +7,10 @@ services:
     container_name: blog-db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root-password-here
-      MYSQL_DATABASE: my_database
-      MYSQL_USER: my-mysql
-      MYSQL_PASSWORD: LeKhoa@123
+      MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD} # Hoặc đặt riêng MYSQL_ROOT_PASSWORD trong .env
+      MYSQL_DATABASE: ${DATABASE_NAME}
+      MYSQL_USER: ${DATABASE_USER}
+      MYSQL_PASSWORD: ${DATABASE_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
@@ -38,14 +38,18 @@ services:
       - NODE_ENV=production
       - DATABASE_HOST=db
       - DATABASE_PORT=3306
-      - DATABASE_USER=my-mysql
-      - DATABASE_PASSWORD=LeKhoa@123
-      - DATABASE_NAME=my_database
+      - DATABASE_USER=${DATABASE_USER}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - DATABASE_NAME=${DATABASE_NAME}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - JWT_SECRET=your_jwt_secret_key
-      - JWT_EXPIRES_IN=15m
-      - FRONTEND_URL=http://localhost:3001
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - FRONTEND_URL=${FRONTEND_URL}
+      # --- Mail (Gmail SMTP) ---
+      - MAIL_USER=${MAIL_USER}
+      - MAIL_PASS=${MAIL_PASS}
+      - SITE_URL=${SITE_URL}
     volumes:
       - ./uploads:/usr/src/app/uploads
 

@@ -128,15 +128,25 @@ export class AuthController {
   }
 
   @Get('me')
-  me(@CurrentUser() user: any) {
-    // Trả về đầy đủ payload JWT, bao gồm isVerified
-    const role = user.role || (Array.isArray(user.roles) ? user.roles[0] : user.roles);
+  async me(@CurrentUser() userToken: any) {
+    // 1. Phải lấy từ DB để có Name và Avatar (Token không chứa các thông tin này)
+    const userProfile = await this.authService.getUserProfile(userToken.sub);
+
+    const siteUrl = process.env.SITE_URL || 'http://localhost:3000';
+    let avatarUrl = userProfile.avatar;
+
+    // 2. Chuyển tên file thành URL tuyệt đối nếu không phải là link sẵn (http...)
+    if (avatarUrl && !avatarUrl.startsWith('http')) {
+      avatarUrl = `${siteUrl}/static/${avatarUrl}`;
+    }
+
     return {
-      id: user.sub,
-      email: user.email,
-      role,                        // string — dùng cho AdminGuard, redirect
-      roles: user.roles || [role], // array — backward compat
-      isVerified: user.isVerified ?? false,
+      id: userProfile.user.id,
+      email: userProfile.user.email,
+      name: userProfile.user.name,
+      avatar: avatarUrl,
+      role: userProfile.user.role,
+      isVerified: userProfile.user.isVerified ?? false,
     };
   }
 }

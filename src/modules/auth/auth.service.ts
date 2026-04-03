@@ -8,6 +8,7 @@ import { CacheService } from '../cache/cache.service';
 import { SignUpDto } from './dto/sign-up.dto';
 import { UserRole } from '../users/entity/user.entity';
 import { MailService } from '../mail/mail.service';
+import { UserAdvance } from '../users/entity/user-advance.entity';
 
 @Injectable()
 export class AuthService {
@@ -167,5 +168,9 @@ export class AuthService {
     await this.mailService.sendVerificationCode(user.email, user.name, otp);
 
     return { message: 'Đã gửi lại mã OTP. Vui lòng kiểm tra email!' };
+  }
+
+  async getUserProfile(userId: number): Promise<UserAdvance> {
+    return this.usersService.profile(userId);
   }
 }
