@@ -18,10 +18,14 @@ import Redis from 'ioredis';
       provide: 'REDIS_CLIENT',
       inject: [ConfigService],
       useFactory: (config: ConfigService): Redis => {
+        const url = config.get<string>('REDIS_URL');
+        if (url) return new Redis(url, { maxRetriesPerRequest: 3 });
+
         return new Redis({
           host: config.get<string>('REDIS_HOST', 'localhost'),
           port: config.get<number>('REDIS_PORT', 6379),
-          // Tự động retry khi mất kết nối, tối đa 3 lần
+          username: config.get<string>('REDIS_USER', 'default'),
+          password: config.get<string>('REDIS_PASSWORD'),
           maxRetriesPerRequest: 3,
           enableReadyCheck: false,
         });

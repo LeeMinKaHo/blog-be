@@ -42,7 +42,7 @@ import { ExpressAdapter } from '@bull-board/express';
 import { BullBoardModule as BullBoardNestModule } from '@bull-board/nestjs';
 import { Follow } from './modules/users/entity/follow.entity';
 import { RedisModule } from './modules/redis/redis.module';
-
+import Redis from 'ioredis';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -88,12 +88,22 @@ import { RedisModule } from './modules/redis/redis.module';
     RedisModule,
     BullModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        connection: {
-          host: config.get<string>('REDIS_HOST', 'localhost'),
-          port: config.get<number>('REDIS_PORT', 6379),
-        },
-      }),
+      useFactory: (config: ConfigService) => {
+        const url = config.get<string>('REDIS_URL');
+        if (url) {
+          return {
+            connection: new Redis(url, { maxRetriesPerRequest: null }),
+          };
+        }
+        return {
+          connection: {
+            host: config.get<string>('REDIS_HOST', 'localhost'),
+            port: config.get<number>('REDIS_PORT', 6379),
+            username: config.get<string>('REDIS_USER', 'default'),
+            password: config.get<string>('REDIS_PASSWORD'),
+          },
+        };
+      },
     }),
     BullBoardNestModule.forRoot({
       route: '/admin/queues',
