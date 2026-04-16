@@ -5,27 +5,31 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { memoryStorage } from 'multer';
+import { FilesService } from './files.service';
 
 @Controller('files')
 export class FilesController {
+  constructor(private readonly filesService: FilesService) { }
+
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads/images',
-        filename: (req, file, cb) => {
-          const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, uniqueName + extname(file.originalname));
-        },
-      }),
+      storage: memoryStorage(),
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|avif|webp)$/)) {
+          return callback(new Error('Chỉ cho phép upload file ảnh!'), false);
+        }
+        callback(null, true);
+      },
     }),
   )
-  uploadFile(@UploadedFile() file: Express.Multer.File) {
+  async uploadFile(@UploadedFile() file: Express.Multer.File) {
+    const fileName = await this.filesService.saveImage(file);
+
     return {
-      filename: file.filename,
-      url: `${process.env.HOST || 'http://localhost:3000'}/static/images/${file.filename}`,
+      filename: fileName,
+      url: `${process.env.SITE_URL || 'http://localhost:3000'}/static/images/${fileName}`,
     };
   }
 }

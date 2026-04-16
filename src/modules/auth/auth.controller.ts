@@ -45,11 +45,13 @@ export class AuthController {
     const { user, accessToken, refreshToken } =
       await this.authService.signIn(loginDto);
 
+    const isProduction = process.env.NODE_ENV === 'production';
+
     // ✅ access token
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       path: '/',
       maxAge: 1000 * 60 * 15, // 15 phút
     });
@@ -57,8 +59,8 @@ export class AuthController {
     // ✅ refresh token
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       path: '/',
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 ngày
     });
@@ -94,17 +96,18 @@ export class AuthController {
 
     // Phát hành token mới có isVerified = true vào cookie (không cần đăng nhập lại)
     if (result.accessToken) {
+      const isProduction = process.env.NODE_ENV === 'production';
       res.cookie('accessToken', result.accessToken, {
         httpOnly: true,
-        secure: false,
-        sameSite: 'lax',
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
         path: '/',
         maxAge: 1000 * 60 * 15,
       });
       res.cookie('refreshToken', result.refreshToken, {
         httpOnly: true,
-        secure: false,
-        sameSite: 'lax',
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
         path: '/',
         maxAge: 1000 * 60 * 60 * 24 * 7,
       });
@@ -122,8 +125,14 @@ export class AuthController {
 
   @Post('logout')
   logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('accessToken', { path: '/' });
-    res.clearCookie('refreshToken', { path: '/' });
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieOptions = {
+      path: '/',
+      secure: isProduction,
+      sameSite: (isProduction ? 'none' : 'lax') as any,
+    };
+    res.clearCookie('accessToken', cookieOptions);
+    res.clearCookie('refreshToken', cookieOptions);
     return { message: 'Logged out' };
   }
 
