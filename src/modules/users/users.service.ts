@@ -242,4 +242,9 @@ export class UsersService {
   async findOneByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOneBy({ email });
   }
+
+  /** Tìm user theo ID (dùng trong refresh token) */
+  async findOneById(id: number): Promise<User | null> {
+    return this.usersRepository.findOneBy({ id });
+  }
 }

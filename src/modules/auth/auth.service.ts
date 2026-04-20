@@ -173,4 +173,42 @@ export class AuthService {
   async getUserProfile(userId: number): Promise<UserAdvance> {
     return this.usersService.profile(userId);
   }
+
+  /**
+   * Dùng refresh token (từ cookie) để cấp lại access token mới.
+   * Kiểm tra refresh token trong Redis để phòng reuse sau logout.
+   */
+  async refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+    // 1. Verify chữ ký
+    let payload: any;
+    try {
+      payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: process.env.REFRESH_TOKEN_SECRET,
+      });
+    } catch {
+      throw new UnauthorizedException('Refresh token không hợp lệ hoặc đã hết hạn');
+    }
+
+    // 2. Kiểm tra refresh token trong Redis có khớp không (phòng reuse)
+    const storedToken = await this.cacheService.get(`refresh_token_${payload.sub}`) as string | undefined;
+    if (!storedToken || storedToken !== refreshToken) {
+      throw new UnauthorizedException('Refresh token đã bị thu hồi');
+    }
+
+    // 3. Lấy thông tin user mới nhất từ DB
+    const user = await this.usersService.findOneById(payload.sub);
+    if (!user) throw new UnauthorizedException('User không tồn tại');
+
+    // 4. Cấp token mới (Rotate refresh token)
+    const tokens = await this.generateTokens(user);
+
+    // 5. Lưu refresh token mới vào Redis (xoá cái cũ)
+    await this.cacheService.set(
+      `refresh_token_${user.id}`,
+      tokens.refreshToken,
+      7 * 24 * 3600,
+    );
+
+    return tokens;
+  }
 }
