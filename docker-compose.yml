@@ -35,7 +35,7 @@ services:
       - redis
     # Docker sẽ truyền đè các biến này nếu có trong container
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
       - DATABASE_HOST=db
       - DATABASE_PORT=3306
       - DATABASE_USER=${DATABASE_USER}

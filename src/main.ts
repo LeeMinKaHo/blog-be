@@ -24,14 +24,47 @@ async function bootstrap() {
   // ── Swagger: chỉ bật trên môi trường development ─────────────────────────
   if (process.env.NODE_ENV !== 'production') {
     const config = new DocumentBuilder()
-      .setTitle('Blog API')
-      .setDescription('API documentation')
-      .setVersion('1.0')
-      .addBearerAuth()
+      .setTitle('Foxtek Blog API')
+      .setDescription(
+        `## 🚀 Backend API cho nền tảng Foxtek Blog\n\n` +
+        `RESTful API xây dựng với **NestJS 11**, cung cấp đầy đủ tính năng:\n` +
+        `- 🔐 Authentication (JWT + HttpOnly Cookie + Refresh Token Rotation)\n` +
+        `- 📝 Blog CRUD với Rich Content\n` +
+        `- 👥 Social Features (Follow, Like, Save, Comment)\n` +
+        `- 🔔 Real-time Notifications (Socket.io)\n` +
+        `- 📧 Email Queue (BullMQ)\n\n` +
+        `**Auth:** API sử dụng JWT token lưu trong HttpOnly Cookie. Các endpoint yêu cầu xác thực sẽ được đánh dấu 🔒.`,
+      )
+      .setVersion('1.0.0')
+      .setContact('Foxtek Team', '', 'foxtek@example.com')
+      .setLicense('MIT', '')
+      .addCookieAuth('accessToken', {
+        type: 'apiKey',
+        in: 'cookie',
+        name: 'accessToken',
+        description: 'JWT Access Token (HttpOnly Cookie, tự động gửi kèm request)',
+      })
+      .addTag('Auth', 'Đăng ký, đăng nhập, refresh token, xác thực email')
+      .addTag('Blogs', 'CRUD bài viết, tìm kiếm, trending, phân trang')
+      .addTag('Blog Interactions', 'Like, save, view tracking bài viết')
+      .addTag('Users', 'Profile, follow system, thống kê user')
+      .addTag('Comments', 'Bình luận bài viết, reply, like comment')
+      .addTag('Notifications', 'Thông báo real-time, đánh dấu đã đọc')
+      .addTag('Files', 'Upload ảnh, quản lý file')
+      .addTag('Admin', 'Quản trị hệ thống (yêu cầu quyền Admin)')
       .build();
 
     const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api', app, document);
+    SwaggerModule.setup('api', app, document, {
+      customSiteTitle: 'Foxtek Blog API Docs',
+      customCss: '.swagger-ui .topbar { display: none }',
+      swaggerOptions: {
+        persistAuthorization: true,
+        docExpansion: 'none',
+        filter: true,
+        tagsSorter: 'alpha',
+      },
+    });
   }
 
   // ── CORS ─────────────────────────────────────────────────────────────────
