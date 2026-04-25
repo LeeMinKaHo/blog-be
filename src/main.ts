@@ -8,7 +8,8 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 import { AppException } from './common/exceptions/app.exception';
 import { ErrorCode } from './common/errors/error-code.enum';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { WINSTON_MODULE_NEST_PROVIDER, WINSTON_MODULE_PROVIDER } from 'nest-winston';
+import { Logger } from 'winston';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -77,9 +78,10 @@ async function bootstrap() {
   app.useGlobalFilters(app.get(GlobalExceptionFilter));
 
   // ── Interceptors ──────────────────────────────────────────────────────────
+  // Dùng app.get() vì cả hai đều cần ClsService từ DI container
   app.useGlobalInterceptors(
     app.get(HttpLoggingInterceptor),
-    new ResponseInterceptor(),
+    app.get(ResponseInterceptor),
   );
 
   app.useGlobalPipes(
@@ -106,5 +108,16 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
+
+  // ── Startup log ──────────────────────────────────────────────────────────────
+  const logger = app.get<Logger>(WINSTON_MODULE_PROVIDER);
+  logger.info('\uD83D\uDE80 Foxtek Blog API started', {
+    context: 'Bootstrap',
+    port,
+    environment: process.env.NODE_ENV ?? 'development',
+    swagger: process.env.NODE_ENV !== 'production' ? `http://localhost:${port}/api` : 'disabled',
+    health: `http://localhost:${port}/health`,
+    pid: process.pid,
+  });
 }
 bootstrap();

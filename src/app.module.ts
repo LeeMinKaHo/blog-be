@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './modules/users/entity/user.entity';
@@ -32,6 +32,9 @@ import { VerifiedGuard } from './common/guards/verified.guard';
 import { LoggerModule } from './common/logger/logger.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { HttpLoggingInterceptor } from './common/interceptors/http-logging.interceptor';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { RequestIdMiddleware } from './common/middlewares/request-id.middleware';
+import { HealthModule } from './modules/health/health.module';
 
 import { AdminModule } from './modules/admin/admin.module';
 import { NotificationModule } from './modules/notifications/notification.module';
@@ -120,6 +123,7 @@ import Redis from 'ioredis';
     FilesModule,
     AdminModule,
     NotificationModule,
+    HealthModule,
   ],
   providers: [
     UserContextService,
@@ -127,6 +131,7 @@ import Redis from 'ioredis';
     // Đăng ký vào DI để main.ts dùng app.get() lấy ra
     GlobalExceptionFilter,
     HttpLoggingInterceptor,
+    ResponseInterceptor,
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
@@ -141,4 +146,13 @@ import Redis from 'ioredis';
     },
   ],
 })
-export class AppModule { }
+export class AppModule implements NestModule {
+  /**
+   * RequestIdMiddleware phải chạy TRƯỚC ClsModule middleware
+   * để requestId có sẵn trong CLS store ngay từ đầu request.
+   * ClsModule.forRoot({ middleware: { mount: true } }) tự mount sau.
+   */
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}

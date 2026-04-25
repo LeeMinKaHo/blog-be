@@ -39,10 +39,12 @@
     "@nestjs/platform-socket.io": "^11.1.16",
     "@nestjs/serve-static": "^5.0.4",
     "@nestjs/swagger": "^11.2.6",
+    "@nestjs/terminus": "^11.1.1",
     "@nestjs/throttler": "^6.5.0",
     "@nestjs/typeorm": "^11.0.0",
     "@nestjs/websockets": "^11.1.16",
     "@types/nodemailer": "^7.0.11",
+    "@types/uuid": "^10.0.0",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.71.0",
     "cache-manager": "^7.2.5",
@@ -65,6 +67,7 @@
     "socket.io-client": "^4.8.3",
     "swagger-ui-express": "^5.0.1",
     "typeorm": "^0.3.27",
+    "uuid": "^14.0.0",
     "winston": "^3.19.0"
   },
   "devDependencies": {
